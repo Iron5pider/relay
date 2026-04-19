@@ -38,10 +38,18 @@ class Language(str, Enum):
 
 
 class DriverStatus(str, Enum):
+    # Existing FMCSA statuses — Block 1.
     driving = "driving"
     on_duty = "on_duty"
     off_duty = "off_duty"
     sleeper = "sleeper"
+    # Tools-contract additions (2026-04-19). Orthogonal application-layer
+    # statuses for the agent's mental model: ready/resting/blocked/rolling.
+    # Coexist with the FMCSA set; the DB stores whichever string is current.
+    ready = "ready"
+    resting = "resting"
+    blocked = "blocked"
+    rolling = "rolling"
 
 
 class LoadStatus(str, Enum):
@@ -142,6 +150,36 @@ class CheckinTriggerReason(str, Enum):
     missed_checkin = "missed_checkin"
     tracking_stale = "tracking_stale"
     manual = "manual"
+
+
+# --- Tools-contract enums (2026-04-19) --------------------------------------
+# Source: API_DOCS/tools_contract.md §1. Coexist with CheckinTriggerReason
+# during the naming transition.
+
+
+class DriverCallTrigger(str, Enum):
+    scheduled_checkin = "scheduled_checkin"
+    hos_near_cap = "hos_near_cap"
+    eta_slip_check = "eta_slip_check"
+    post_breakdown = "post_breakdown"
+    stationary_too_long = "stationary_too_long"
+    inbound = "inbound"
+
+
+class Urgency(str, Enum):
+    low = "low"
+    med = "med"
+    high = "high"
+
+
+class IssueType(str, Enum):
+    mechanical = "mechanical"
+    personal = "personal"
+    load = "load"
+    route = "route"
+    weather = "weather"
+    other = "other"
+    none = "none"
 
 
 class _Strict(BaseModel):

@@ -116,6 +116,17 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RequestIDMiddleware)
 
+    # Envelope-wrapped exception handler — unhandled errors become
+    # `{ok: false, error: {...}}` 500s instead of raw HTML tracebacks.
+    from .services.envelope import register_envelope_exception_handler
+
+    register_envelope_exception_handler(app)
+
+    # Tool endpoints, webhooks, internal automation, call initiator.
+    from .routes import api_router
+
+    app.include_router(api_router)
+
     @app.get("/health")
     async def health() -> dict:
         from .db.session import ping

@@ -1,0 +1,56 @@
+[
+  {
+    "name": "TA Truck Service — Needles",
+    "lat": 34.8481,
+    "lng": -114.6167,
+    "phone": "+17603260444",
+    "services": ["mechanical", "tire", "electrical"],
+    "hours": "24/7",
+    "address": "2445 W Broadway, Needles, CA 92363"
+  },
+  {
+    "name": "Speedco — Flagstaff",
+    "lat": 35.1983,
+    "lng": -111.6513,
+    "phone": "+19287741000",
+    "services": ["mechanical", "tire"],
+    "hours": "Mon-Sat 07:00-22:00",
+    "address": "1551 W Butler Ave, Flagstaff, AZ 86001"
+  },
+  {
+    "name": "Petro Lube — Albuquerque",
+    "lat": 35.0488,
+    "lng": -106.6104,
+    "phone": "+15058812020",
+    "services": ["mechanical", "tire", "mobile_roadside"],
+    "hours": "24/7",
+    "address": "6601 Iliff Rd NW, Albuquerque, NM 87121"
+  },
+  {
+    "name": "Loves Truck Tire — Barstow",
+    "lat": 34.9253,
+    "lng": -117.0244,
+    "phone": "+17602567171",
+    "services": ["tire", "mechanical"],
+    "hours": "24/7",
+    "address": "2591 Lenwood Rd, Barstow, CA 92311"
+  },
+  {
+    "name": "Phoenix Truck Pros",
+    "lat": 33.4125,
+    "lng": -112.1006,
+    "phone": "+16029370055",
+    "services": ["mechanical", "electrical", "towing"],
+    "hours": "Mon-Fri 06:00-20:00; Sat 08:00-16:00",
+    "address": "4141 W Van Buren St, Phoenix, AZ 85009"
+  },
+  {
+    "name": "24/7 Mobile Roadside — Tucson",
+    "lat": 32.2226,
+    "lng": -110.9747,
+    "phone": "+15205550199",
+    "services": ["mobile_roadside", "tire", "towing"],
+    "hours": "24/7",
+    "address": "Mobile dispatch — Tucson metro, AZ"
+  }
+]

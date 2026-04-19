@@ -140,6 +140,21 @@ class VoiceCall(Base):
     load_id: Mapped[str | None] = mapped_column(
         Text, ForeignKey("loads.id", ondelete="SET NULL")
     )
+    # Tools-contract additions (2026-04-19).
+    # ElevenLabs conversation_id — unique lookup key for post_call webhook idempotency.
+    conversation_id: Mapped[str | None] = mapped_column(Text, unique=True)
+    agent_id: Mapped[str | None] = mapped_column(Text)
+    driver_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("drivers.id", ondelete="SET NULL")
+    )
+    trigger_reason: Mapped[str | None] = mapped_column(Text)
+    # dialing | in_progress | done | failed | no_answer | voicemail
+    call_status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default="dialing"
+    )
+    analysis_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default="{}"
+    )
     direction: Mapped[str] = mapped_column(Text, nullable=False)
     purpose: Mapped[str] = mapped_column(Text, nullable=False)
     from_number: Mapped[str] = mapped_column(Text, nullable=False)
@@ -170,6 +185,7 @@ class VoiceCall(Base):
 
     __table_args__ = (
         Index("ix_voice_calls_load_started", "load_id", "started_at"),
+        Index("ix_voice_calls_driver_id", "driver_id"),
     )
 
 
@@ -261,13 +277,143 @@ class WebhookEvent(Base):
     )
 
 
+# --- Tools-contract tables (2026-04-19) -------------------------------------
+
+
+class Incident(Base):
+    __tablename__ = "incidents"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    driver_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("drivers.id", ondelete="RESTRICT"), nullable=False
+    )
+    call_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("voice_calls.id", ondelete="SET NULL")
+    )
+    type: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[int] = mapped_column(Integer, nullable=False, server_default="3")
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class DetentionEvent(Base):
+    __tablename__ = "detention_events"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    call_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("voice_calls.id", ondelete="CASCADE"), nullable=False
+    )
+    load_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("loads.id", ondelete="RESTRICT"), nullable=False
+    )
+    ap_contact_name: Mapped[str | None] = mapped_column(Text)
+    ap_contact_method: Mapped[str | None] = mapped_column(Text)
+    ap_contact_detail: Mapped[str | None] = mapped_column(Text)
+    supervisor_name: Mapped[str | None] = mapped_column(Text)
+    committed_to_pay: Mapped[bool] = mapped_column(nullable=False)
+    detention_hours_confirmed: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
+    notes: Mapped[str | None] = mapped_column(Text)
+    escalation_step_reached: Mapped[int | None] = mapped_column(Integer)
+    contact_attempted: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class Invoice(Base):
+    """Tools-contract invoices table. Distinct from legacy `detention_invoices`.
+
+    Written by `/internal/invoice/generate_detention`. PDF generation is stubbed
+    for now (`pdf_url='pending'`); Block 3 adds real @react-pdf/renderer output.
+    """
+
+    __tablename__ = "invoices"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    load_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("loads.id", ondelete="RESTRICT"), nullable=False
+    )
+    call_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("voice_calls.id", ondelete="RESTRICT"), nullable=False
+    )
+    pdf_url: Mapped[str | None] = mapped_column(Text)
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default="ready_for_review"
+    )
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class DispatcherNotification(Base):
+    __tablename__ = "dispatcher_notifications"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    urgency: Mapped[str] = mapped_column(Text, nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    driver_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("drivers.id", ondelete="SET NULL")
+    )
+    load_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("loads.id", ondelete="SET NULL")
+    )
+    call_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("voice_calls.id", ondelete="SET NULL")
+    )
+    ack_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class DispatcherTask(Base):
+    __tablename__ = "dispatcher_tasks"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    priority: Mapped[str] = mapped_column(Text, nullable=False, server_default="med")
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str | None] = mapped_column(Text)
+    related_call_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("voice_calls.id", ondelete="SET NULL")
+    )
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="open")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class TranscriptSnapshot(Base):
+    __tablename__ = "transcript_snapshots"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    call_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("voice_calls.id", ondelete="CASCADE"), nullable=False
+    )
+    key_quote: Mapped[str] = mapped_column(Text, nullable=False)
+    quote_type: Mapped[str] = mapped_column(Text, nullable=False)
+    timestamp_in_call: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 __all__ = [
     "Base",
     "Broker",
+    "DetentionEvent",
     "DetentionInvoice",
+    "DispatcherNotification",
+    "DispatcherTask",
     "Driver",
     "ExceptionEvent",
+    "Incident",
+    "Invoice",
     "Load",
+    "TranscriptSnapshot",
     "TranscriptTurn",
     "VoiceCall",
     "WebhookEvent",

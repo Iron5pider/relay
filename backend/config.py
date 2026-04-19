@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     elevenlabs_agent_driver_checkin_id: str = ""
     elevenlabs_service_token: str = ""
     elevenlabs_webhook_secret: str = ""
+    elevenlabs_phone_number_id: str = ""
+
+    # Internal bearer token ElevenLabs sends back on every tool call
+    # (secret__relay_token dynamic variable). Mint locally + put in .env.
+    relay_internal_token: str = ""
+    # Public base URL used for building tool/webhook URLs when handing them to
+    # ElevenLabs' agent config. In dev this is the ngrok public URL.
+    backend_public_url: str = "http://localhost:8000"
 
     pusher_app_id: str = ""
     pusher_key: str = ""

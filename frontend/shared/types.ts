@@ -25,7 +25,17 @@ export interface Coordinates {
 }
 
 // ---------- Driver ----------
-export type DriverStatus = 'driving' | 'on_duty' | 'off_duty' | 'sleeper';
+// FMCSA statuses coexist with the tools-contract app-layer statuses
+// (ready/resting/blocked/rolling — 2026-04-19).
+export type DriverStatus =
+  | 'driving'
+  | 'on_duty'
+  | 'off_duty'
+  | 'sleeper'
+  | 'ready'
+  | 'resting'
+  | 'blocked'
+  | 'rolling';
 export type FatigueLevel = 'low' | 'moderate' | 'high' | 'unknown';
 
 export interface Driver {
@@ -151,6 +161,27 @@ export type CheckinTriggerReason =
   | 'missed_checkin' // 2026-04-19 — Build Scope Feature 2
   | 'tracking_stale' // 2026-04-19 — NavPro freshness signal
   | 'manual';
+
+// Tools-contract enums (2026-04-19). Source: API_DOCS/tools_contract.md §1.
+// Coexist with CheckinTriggerReason during naming transition.
+export type DriverCallTrigger =
+  | 'scheduled_checkin'
+  | 'hos_near_cap'
+  | 'eta_slip_check'
+  | 'post_breakdown'
+  | 'stationary_too_long'
+  | 'inbound';
+
+export type Urgency = 'low' | 'med' | 'high';
+
+export type IssueType =
+  | 'mechanical'
+  | 'personal'
+  | 'load'
+  | 'route'
+  | 'weather'
+  | 'other'
+  | 'none';
 
 export interface TranscriptTurn {
   id: UUID;
