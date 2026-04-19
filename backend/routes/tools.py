@@ -252,10 +252,11 @@ async def notify_dispatcher(
 ):
     start = time.monotonic()
     notif_id = str(uuid.uuid4())
+    urgency = body.urgency.value if hasattr(body.urgency, "value") else body.urgency
     db.add(
         DispatcherNotification(
             id=notif_id,
-            urgency=body.urgency.value if hasattr(body.urgency, "value") else body.urgency,
+            urgency=urgency,
             summary=body.summary,
             driver_id=body.driver_id,
             load_id=body.load_id,
@@ -263,6 +264,18 @@ async def notify_dispatcher(
         )
     )
     await db.commit()
+
+    from backend.bus.channels import dispatcher_channel
+    from backend.bus.publisher import publish
+
+    publish(dispatcher_channel(), "exception.raised", {
+        "notification_id": notif_id,
+        "urgency": urgency,
+        "summary": body.summary,
+        "driver_id": body.driver_id,
+        "load_id": body.load_id,
+    })
+
     _log("notify_dispatcher", body.call_id, start)
     return ok({"notification_id": notif_id})
 
@@ -415,15 +428,32 @@ async def get_load_status_for_broker(
     schedule_delta = int((now - load.delivery_appointment).total_seconds() // 60)
     on_schedule = schedule_delta <= 0
 
+    # Reverse geocode from static city map based on lat/lng proximity.
+    last_gps_city = _reverse_geocode(driver.current_lat, driver.current_lng) if driver else None
+
+    # Haversine distance from driver to delivery stop.
+    miles_remaining = None
+    if driver and driver.current_lat and driver.current_lng:
+        miles_remaining = _haversine_miles(
+            driver.current_lat, driver.current_lng,
+            load.delivery_lat, load.delivery_lng,
+        )
+
+    # Convert UTC datetimes to PST-formatted strings.
+    import pytz
+    pst = pytz.timezone("US/Pacific")
+    eta_pst = load.delivery_appointment.astimezone(pst).strftime("%-I:%M %p PST")
+    appt_pst = load.delivery_appointment.astimezone(pst).strftime("%-I:%M %p PST")
+
     data = {
         "load_id": load.id,
         "load_number": load.load_number,
         "driver_first_name": first_name,
-        "last_gps_city": None,  # Block 2 reverse geocode
-        "miles_remaining": None,  # not modeled
+        "last_gps_city": last_gps_city,
+        "miles_remaining": miles_remaining,
         "eta_iso": load.delivery_appointment.isoformat().replace("+00:00", "Z"),
-        "eta_time_pst": None,
-        "appointment_time_pst": None,
+        "eta_time_pst": eta_pst,
+        "appointment_time_pst": appt_pst,
         "on_schedule": on_schedule,
         "schedule_delta_minutes": schedule_delta,
         "status": load.status,
@@ -489,6 +519,44 @@ async def request_dispatcher_callback(
 # =============================================================================
 # helpers
 # =============================================================================
+
+
+import math
+
+# Static city map for demo — covers the I-10/I-40/I-15 corridor.
+_CITY_MAP = [
+    (34.05, -118.24, "Los Angeles, CA"),
+    (33.45, -112.07, "Phoenix, AZ"),
+    (35.20, -111.65, "Flagstaff, AZ"),
+    (34.67, -114.46, "Needles, CA"),
+    (33.03, -116.86, "Borrego Springs, CA"),
+    (36.17, -115.14, "Las Vegas, NV"),
+    (32.72, -117.16, "San Diego, CA"),
+    (35.22, -101.83, "Amarillo, TX"),
+    (39.74, -104.99, "Denver, CO"),
+    (35.47, -97.52, "Oklahoma City, OK"),
+    (33.75, -84.39, "Atlanta, GA"),
+    (32.78, -96.80, "Dallas, TX"),
+]
+
+
+def _haversine_miles(lat1: float, lng1: float, lat2: float, lng2: float) -> int:
+    R = 3958.8  # Earth radius in miles
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlng / 2) ** 2
+    return int(R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)))
+
+
+def _reverse_geocode(lat: float | None, lng: float | None) -> str | None:
+    if lat is None or lng is None:
+        return None
+    best, best_dist = "Unknown", float("inf")
+    for clat, clng, name in _CITY_MAP:
+        d = (lat - clat) ** 2 + (lng - clng) ** 2
+        if d < best_dist:
+            best, best_dist = name, d
+    return best
 
 
 async def _resolve_call_id(db: AsyncSession, raw: str | None) -> str | None:

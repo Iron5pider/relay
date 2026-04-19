@@ -29,8 +29,9 @@ def get_adapter() -> NavProAdapter:
     return _get_adapter()
 
 
-def get_bus() -> Any:
-    raise NotImplementedError("bus/publisher.py lands in Block 2")
+def get_bus():
+    from backend.bus import publisher
+    return publisher
 
 
 @lru_cache(maxsize=1)

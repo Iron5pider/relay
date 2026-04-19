@@ -11,5 +11,6 @@ twilio>=9.0,<10.0
 pusher>=3.3,<4.0
 orjson>=3.10,<4.0
 python-dotenv>=1.0,<2.0
+pytz>=2024.1
 # Anomaly agent — Claude Sonnet 4.6 reasoning layer (Messages API + prompt caching + forced tool use)
 anthropic>=0.40,<1.0

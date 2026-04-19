@@ -191,6 +191,19 @@ async def post_call(
 
     await db.commit()
 
+    # Publish call.ended so the dashboard updates immediately.
+    from backend.bus.channels import dispatcher_channel
+    from backend.bus.publisher import publish
+
+    publish(dispatcher_channel(), "call.ended", {
+        "call_id": vc.id,
+        "conversation_id": conversation_id,
+        "outcome": vc.outcome,
+        "duration_seconds": vc.duration_seconds,
+        "agent_id": agent_id,
+        "call_status": vc.call_status,
+    })
+
     # Fan out side-effects as background tasks so the webhook acks quickly.
     if agent_id == settings.elevenlabs_agent_detention_id:
         committed = _extract_bool(dc.get("committed_to_pay"))
@@ -200,6 +213,8 @@ async def post_call(
         issues_flagged = _extract_bool(dc.get("issues_flagged"))
         if issues_flagged:
             background.add_task(_urgent_queue_async, vc.id)
+        # F6b: always write back check-in data to Driver row.
+        background.add_task(_driver_checkin_writeback_async, vc.id)
     # broker_update: no side-effect beyond voice_calls + dispatcher_notifications
     # already written by `mark_broker_updated` tool during the call.
 
@@ -221,7 +236,6 @@ def _extract_bool(field: Any) -> bool:
 
 
 async def _generate_invoice_async(voice_call_id: str) -> None:
-    # Lazy import to avoid circularity.
     from backend.db import session as db_session
     from backend.services.detention import generate_detention_invoice
 
@@ -232,7 +246,17 @@ async def _generate_invoice_async(voice_call_id: str) -> None:
     assert factory is not None
     async with factory() as session:
         try:
-            await generate_detention_invoice(session, voice_call_id)
+            result = await generate_detention_invoice(session, voice_call_id)
+            # Publish invoice.generated so the dashboard picks it up.
+            from backend.bus.channels import dispatcher_channel
+            from backend.bus.publisher import publish
+
+            publish(dispatcher_channel(), "invoice.generated", {
+                "invoice_id": result["invoice_id"],
+                "load_id": result.get("load_id", ""),
+                "amount": result["amount"],
+                "status": result["status"],
+            })
         except Exception:
             logger.exception(
                 "event=invoice_background_failed voice_call_id=%s", voice_call_id
@@ -265,6 +289,99 @@ async def _urgent_queue_async(voice_call_id: str) -> None:
             )
         )
         await session.commit()
+
+
+async def _driver_checkin_writeback_async(voice_call_id: str) -> None:
+    """F6b: unpack data_collection_results onto the Driver row after a check-in call."""
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from backend.db import session as db_session
+    from backend.models.db import Driver, Load, VoiceCall
+
+    factory = db_session.AsyncSessionLocal
+    if factory is None:
+        db_session.get_engine()
+        factory = db_session.AsyncSessionLocal
+    assert factory is not None
+
+    async with factory() as session:
+        call = await session.get(VoiceCall, voice_call_id)
+        if call is None:
+            return
+
+        dc = call.structured_data_json or {}
+        driver_id = call.driver_id
+        if not driver_id:
+            # Try to get from dynamic vars echoed back.
+            dyn = call.analysis_json or {}
+            driver_id = dyn.get("driver_id")
+        if not driver_id:
+            logger.warning("event=checkin_writeback_no_driver call_id=%s", voice_call_id)
+            return
+
+        driver = await session.get(Driver, driver_id)
+        if driver is None:
+            return
+
+        # Extract fields from data_collection_results.
+        def _val(field):
+            v = dc.get(field)
+            if isinstance(v, dict):
+                return v.get("value")
+            return v
+
+        fatigue = _val("fatigue_level")
+        if fatigue and fatigue in ("low", "moderate", "high"):
+            driver.fatigue_level = fatigue
+
+        hos_self = _val("hos_self_reported_minutes")
+        if hos_self is not None:
+            try:
+                driver.hos_drive_remaining_minutes = int(hos_self)
+                driver.hos_remaining_minutes = int(hos_self)
+            except (ValueError, TypeError):
+                pass
+
+        # Bump timestamps.
+        now = datetime.now(timezone.utc)
+        ended = call.ended_at or now
+        driver.last_checkin_at = ended
+        driver.updated_at = now
+
+        # Reschedule: 3h normally, 1h on voicemail.
+        is_voicemail = call.call_status == "voicemail" or call.outcome == "voicemail"
+        reschedule_delta = timedelta(hours=1) if is_voicemail else timedelta(hours=3)
+        driver.next_scheduled_checkin_at = now + reschedule_delta
+
+        await session.commit()
+
+        logger.info(
+            "event=checkin_writeback_ok driver_id=%s fatigue=%s next_checkin=%s",
+            driver_id,
+            fatigue or "unchanged",
+            driver.next_scheduled_checkin_at.isoformat() if driver.next_scheduled_checkin_at else "",
+        )
+
+        # Publish load.updated if driver has an active load.
+        load_result = await session.execute(
+            select(Load).where(
+                Load.driver_id == driver_id,
+                Load.status.in_(["in_transit", "at_pickup", "at_delivery", "exception"]),
+            )
+        )
+        active_load = load_result.scalars().first()
+        if active_load:
+            from backend.bus.channels import dispatcher_channel
+            from backend.bus.publisher import publish
+
+            publish(dispatcher_channel(), "load.updated", {
+                "load_id": active_load.id,
+                "driver_id": driver_id,
+                "fatigue_level": driver.fatigue_level,
+                "last_checkin_at": driver.last_checkin_at.isoformat().replace("+00:00", "Z"),
+            })
 
 
 @router.post("/personalization")

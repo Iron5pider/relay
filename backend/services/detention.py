@@ -86,6 +86,7 @@ async def generate_detention_invoice(db: AsyncSession, call_id: str) -> dict[str
     )
     return {
         "invoice_id": invoice_id,
+        "load_id": load.id,
         "pdf_url": "pending",
         "amount": float(amount),
         "status": "ready_for_review",

@@ -95,6 +95,19 @@ async def initiate_call(
         language=language,
     )
 
+    # Publish call.started so the dashboard shows the call immediately.
+    from backend.bus.channels import dispatcher_channel
+    from backend.bus.publisher import publish
+
+    publish(dispatcher_channel(), "call.started", {
+        "call_id": voice_call_id,
+        "conversation_id": conversation_id,
+        "agent_kind": body.agent_kind,
+        "to_number": to_number,
+        "driver_id": driver.id if driver else None,
+        "load_id": load.id if load else None,
+    })
+
     return ok(
         {
             "conversation_id": conversation_id,
