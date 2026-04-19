@@ -11,7 +11,17 @@ import {
   AlertCircle,
   CircleDashed,
   Search,
+  Siren,
 } from "lucide-react";
+
+// Configurable via NEXT_PUBLIC_ESCALATION_NUMBER / _NAME in .env.local.
+// Shown in the page header + as an inline "call" affordance on any row
+// with outcome=escalated so the dispatcher always knows where to route.
+const ESCALATION_NUMBER =
+  process.env.NEXT_PUBLIC_ESCALATION_NUMBER ?? "+1 (480) 555-0199";
+const ESCALATION_NAME =
+  process.env.NEXT_PUBLIC_ESCALATION_NAME ?? "Maria (on-call dispatch)";
+const ESCALATION_TEL = ESCALATION_NUMBER.replace(/[^\d+]/g, "");
 import { api } from "@/lib/api";
 import { formatRelative } from "@/lib/time";
 import type {
@@ -261,6 +271,27 @@ function CallDetailPanel({
 function OverviewTab({ d }: { d: CallDetail }) {
   return (
     <div className="space-y-4">
+      {d.outcome === "escalated" && (
+        <div className="flex items-center justify-between gap-3 rounded border border-amber-200 bg-amber-50 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Siren size={14} className="text-amber-700" />
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-amber-700">
+                escalation
+              </div>
+              <div className="text-[12px] font-mono text-ink-900">
+                {ESCALATION_NAME} · {ESCALATION_NUMBER}
+              </div>
+            </div>
+          </div>
+          <a
+            href={`tel:${ESCALATION_TEL}`}
+            className="text-[11px] font-mono text-red-600 hover:text-red-700 font-semibold"
+          >
+            dial →
+          </a>
+        </div>
+      )}
       {d.transcript_summary && (
         <section>
           <div className="text-[10px] font-mono uppercase tracking-wider text-ink-400 mb-1">
@@ -570,6 +601,27 @@ export default function CallsPage() {
 
   return (
     <div className="h-full flex flex-col bg-white">
+      {/* Escalation banner — always visible so Maria knows where calls land */}
+      <div className="border-b border-amber-200 bg-amber-50/70 px-6 py-2 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 text-[11px] font-mono text-amber-900">
+          <Siren size={12} className="text-amber-700" />
+          <span className="uppercase tracking-wider text-amber-700">
+            escalation line
+          </span>
+          <span className="text-amber-900/70">·</span>
+          <span className="text-ink-700">{ESCALATION_NAME}</span>
+          <a
+            href={`tel:${ESCALATION_TEL}`}
+            className="font-bold text-ink-900 hover:text-red-600 transition-colors tabular-nums"
+          >
+            {ESCALATION_NUMBER}
+          </a>
+        </div>
+        <div className="text-[10px] font-mono text-amber-700/80 uppercase tracking-wider">
+          every row marked ESCALATED routes to this number
+        </div>
+      </div>
+
       {/* Header */}
       <div className="border-b border-ink-100 px-6 py-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -693,10 +745,36 @@ export default function CallsPage() {
                       {formatCallLength(r.duration_seconds)}
                     </td>
                     <td className="px-3 py-2 text-ink-500 max-w-[380px] truncate">
-                      {truncate(summaryLine, 90)}
+                      {r.outcome === "escalated" ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-[1px]"
+                            title={`Escalation line · ${ESCALATION_NAME}`}
+                          >
+                            <Siren size={10} />
+                            call {ESCALATION_NUMBER}
+                          </span>
+                          <span className="truncate text-ink-500">
+                            {truncate(summaryLine, 60)}
+                          </span>
+                        </span>
+                      ) : (
+                        truncate(summaryLine, 90)
+                      )}
                     </td>
                     <td className="px-6 py-2 text-right">
-                      <CircleDashed size={12} className="text-ink-300 inline" />
+                      {r.outcome === "escalated" ? (
+                        <a
+                          href={`tel:${ESCALATION_TEL}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-red-600 hover:text-red-700"
+                          title={`Dial ${ESCALATION_NUMBER}`}
+                        >
+                          <Siren size={14} className="inline" />
+                        </a>
+                      ) : (
+                        <CircleDashed size={12} className="text-ink-300 inline" />
+                      )}
                     </td>
                   </tr>
                 );
