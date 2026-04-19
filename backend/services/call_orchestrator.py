@@ -30,9 +30,9 @@ ELEVENLABS_OUTBOUND_URL = "https://api.elevenlabs.io/v1/convai/twilio/outbound-c
 
 def _agent_id_for(kind: AgentKind) -> str:
     mapping = {
-        "driver_agent": settings.elevenlabs_agent_driver_checkin_id,
+        "driver_agent": settings.elevenlabs_agent_driver_id,
         "detention_agent": settings.elevenlabs_agent_detention_id,
-        "broker_update_agent": settings.elevenlabs_agent_broker_id,
+        "broker_update_agent": settings.elevenlabs_agent_broker_update_id,
     }
     agent_id = mapping.get(kind, "")
     if not agent_id:

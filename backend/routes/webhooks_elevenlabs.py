@@ -196,7 +196,7 @@ async def post_call(
         committed = _extract_bool(dc.get("committed_to_pay"))
         if committed:
             background.add_task(_generate_invoice_async, vc.id)
-    elif agent_id == settings.elevenlabs_agent_driver_checkin_id:
+    elif agent_id == settings.elevenlabs_agent_driver_id:
         issues_flagged = _extract_bool(dc.get("issues_flagged"))
         if issues_flagged:
             background.add_task(_urgent_queue_async, vc.id)

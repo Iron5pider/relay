@@ -37,10 +37,12 @@ class Settings(BaseSettings):
     twilio_inbound_ivr_number: str = ""
 
     elevenlabs_api_key: str = ""
+    # Three active ElevenLabs agents per `API_DOCS/changelog/2026-04-18_2245...`
+    # (breaking-rename entry) and `tools_contract.md` v1. `driver_ivr_agent`
+    # stays deferred per Build Scope and is intentionally not declared here.
     elevenlabs_agent_detention_id: str = ""
-    elevenlabs_agent_broker_id: str = ""
-    elevenlabs_agent_driver_ivr_id: str = ""
-    elevenlabs_agent_driver_checkin_id: str = ""
+    elevenlabs_agent_driver_id: str = ""
+    elevenlabs_agent_broker_update_id: str = ""
     elevenlabs_service_token: str = ""
     elevenlabs_webhook_secret: str = ""
     elevenlabs_phone_number_id: str = ""
