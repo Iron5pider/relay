@@ -212,9 +212,10 @@ async def judge(snap: NavProSnapshot, ctx: DriverContext) -> AnomalyDecision:
         return _default_hold("Anomaly agent timed out; defaulting to hold.")
     except Exception as exc:  # noqa: BLE001 — defensive catch-all per plan
         logger.warning(
-            "event=anomaly_agent_error driver_id=%s err=%s",
+            "event=anomaly_agent_error driver_id=%s err=%s msg=%s",
             snap.driver_id,
             type(exc).__name__,
+            str(exc)[:300].replace("\n", " "),
         )
         return _default_hold(f"Anomaly agent error: {type(exc).__name__}.")
 
