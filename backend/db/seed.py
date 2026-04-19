@@ -84,10 +84,11 @@ def _row_driver(data: dict[str, Any]) -> Driver:
 def _row_load(data: dict[str, Any]) -> Load:
     pickup = data["pickup"]
     delivery = data["delivery"]
+    driver_obj = data.get("driver")
     return Load(
         id=data["id"],
         load_number=data["load_number"],
-        driver_id=data["driver"]["id"],
+        driver_id=driver_obj["id"] if driver_obj else None,
         broker_id=data["broker"]["id"],
         pickup_name=pickup["name"],
         pickup_lat=pickup["lat"],

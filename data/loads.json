@@ -286,5 +286,101 @@
     "exception_flags": [],
     "created_at": "2026-04-18T11:30:00Z",
     "_demo_notes": "John's return load from Denver. Planned — no demo action."
+  },
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f712b",
+    "load_number": "L-12353",
+    "driver": null,
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000010",
+      "name": "Acme Logistics"
+    },
+    "pickup": {
+      "name": "Phoenix DC",
+      "lat": 33.45,
+      "lng": -112.07,
+      "phone": "+16025550100",
+      "appointment": "2026-04-19T09:00:00Z"
+    },
+    "delivery": {
+      "name": "Dallas Cross-Dock",
+      "lat": 32.7767,
+      "lng": -96.7970,
+      "phone": "+12145550700",
+      "appointment": "2026-04-20T14:00:00Z"
+    },
+    "rate_linehaul": 2480.00,
+    "detention_rate_per_hour": 75.00,
+    "detention_free_minutes": 120,
+    "status": "planned",
+    "arrived_at_stop_at": null,
+    "detention_minutes_elapsed": 0,
+    "exception_flags": [],
+    "created_at": "2026-04-19T08:00:00Z",
+    "_demo_notes": "DEMO — Maria's 9am 'Who gets this Dallas load?' scenario. Pickup Phoenix DC → Dallas. Tommy is at Phoenix DC right now with 540 min drive remaining; should rank #1."
+  },
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f712c",
+    "load_number": "L-12354",
+    "driver": null,
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000011",
+      "name": "TQL"
+    },
+    "pickup": {
+      "name": "Flagstaff Yard",
+      "lat": 35.1983,
+      "lng": -111.6513,
+      "phone": "+19285556600",
+      "appointment": "2026-04-19T12:00:00Z"
+    },
+    "delivery": {
+      "name": "Denver Distribution",
+      "lat": 39.7392,
+      "lng": -104.9903,
+      "phone": "+17205552001",
+      "appointment": "2026-04-20T06:00:00Z"
+    },
+    "rate_linehaul": 1650.00,
+    "detention_rate_per_hour": 65.00,
+    "detention_free_minutes": 120,
+    "status": "planned",
+    "arrived_at_stop_at": null,
+    "detention_minutes_elapsed": 0,
+    "exception_flags": [],
+    "created_at": "2026-04-19T08:05:00Z",
+    "_demo_notes": "DEMO — secondary assignment scenario. Sarah is off-duty in Flagstaff (closest) → disqualified. Expect John (already on I-40 near Flagstaff, fresh HOS) to rank #1."
+  },
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f712d",
+    "load_number": "L-12355",
+    "driver": null,
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000013",
+      "name": "RXO"
+    },
+    "pickup": {
+      "name": "Long Beach Port",
+      "lat": 33.7701,
+      "lng": -118.1937,
+      "phone": "+15625558200",
+      "appointment": "2026-04-19T14:00:00Z"
+    },
+    "delivery": {
+      "name": "Phoenix DC East",
+      "lat": 33.45,
+      "lng": -111.90,
+      "phone": "+16025550200",
+      "appointment": "2026-04-20T02:00:00Z"
+    },
+    "rate_linehaul": 1320.00,
+    "detention_rate_per_hour": 60.00,
+    "detention_free_minutes": 120,
+    "status": "planned",
+    "arrived_at_stop_at": null,
+    "detention_minutes_elapsed": 0,
+    "exception_flags": [],
+    "created_at": "2026-04-19T08:10:00Z",
+    "_demo_notes": "DEMO — port pickup. Carlos is at Receiver XYZ in LA (~25mi from Long Beach) once he clears detention; should win once status flips to ready."
   }
 ]

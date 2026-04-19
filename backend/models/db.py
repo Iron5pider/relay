@@ -63,6 +63,10 @@ class Driver(Base):
     next_scheduled_checkin_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True)
     )
+    # Load-balancer tiebreaker for consignment-assignment (2026-04-19).
+    # Freshness component of the scoring formula prefers drivers who haven't
+    # been handed work recently.
+    last_assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
@@ -84,8 +88,10 @@ class Load(Base):
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     load_number: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    driver_id: Mapped[str] = mapped_column(
-        Text, ForeignKey("drivers.id", ondelete="RESTRICT"), nullable=False
+    # Nullable as of 2026-04-19 — loads can land unassigned until the
+    # dispatcher runs the consignment scorer and picks a driver.
+    driver_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("drivers.id", ondelete="RESTRICT")
     )
     broker_id: Mapped[str] = mapped_column(
         Text, ForeignKey("brokers.id", ondelete="RESTRICT"), nullable=False

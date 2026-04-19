@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from . import calls, internal, tools, webhooks_elevenlabs
+from . import calls, consignment, internal, tools, webhooks_elevenlabs
 
 api_router = APIRouter()
 # Tool endpoints live at `/tools/{group}/{action}` — router defines full paths.
@@ -18,5 +18,7 @@ api_router.include_router(webhooks_elevenlabs.router, prefix="/webhooks/elevenla
 api_router.include_router(internal.router, prefix="/internal")
 # Call initiator: `/internal/call/initiate`.
 api_router.include_router(calls.router, prefix="/internal")
+# Dispatcher consignment assignment: `/dispatcher/loads/…`, `/dispatcher/load/{id}/…`.
+api_router.include_router(consignment.router)
 
 __all__ = ["api_router"]
