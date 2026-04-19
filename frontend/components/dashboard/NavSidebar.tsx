@@ -79,7 +79,7 @@ export default function NavSidebar() {
     if (collapsed) {
       return (
         <Tooltip key={item.href}>
-          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipTrigger render={link} />
           <TooltipContent
             side="right"
             className="bg-ink-900 text-white font-mono text-[11px] px-2 py-1"
@@ -129,16 +129,18 @@ export default function NavSidebar() {
       <div className="px-2 pb-2">
         {collapsed ? (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                role="button"
-                tabIndex={0}
-                className="flex items-center justify-center w-full rounded bg-ink-900 text-white py-2 text-[12px] font-mono font-medium hover:bg-ink-800 transition-colors cursor-pointer"
-                aria-label="New Load"
-              >
-                <Plus size={14} />
-              </div>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="flex items-center justify-center w-full rounded bg-ink-900 text-white py-2 text-[12px] font-mono font-medium hover:bg-ink-800 transition-colors cursor-pointer"
+                  aria-label="New Load"
+                >
+                  <Plus size={14} />
+                </div>
+              }
+            />
             <TooltipContent
               side="right"
               className="bg-ink-900 text-white font-mono text-[11px] px-2 py-1"

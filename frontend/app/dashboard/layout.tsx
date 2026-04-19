@@ -9,7 +9,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <TooltipProvider delayDuration={200}>
+    <TooltipProvider delay={200}>
       <div className="flex h-screen w-screen overflow-hidden bg-white">
         <NavSidebar />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
