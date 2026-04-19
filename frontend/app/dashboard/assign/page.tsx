@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SplitSquareHorizontal, Truck, MapPin, Clock, Zap } from "lucide-react";
+import { SplitSquareHorizontal, Clock, Zap } from "lucide-react";
 import { api, UnassignedLoad, CandidateScore } from "@/lib/api";
 import { useDrivers } from "@/lib/realtime";
 import { formatMoney } from "@/lib/time";
@@ -15,7 +15,7 @@ export default function AssignPage() {
 
   useEffect(() => {
     api.unassignedLoads()
-      .then((r) => setUnassigned(r.loads ?? []))
+      .then((r) => setUnassigned(Array.isArray(r) ? r : r.loads ?? []))
       .catch(() => {});
   }, []);
 
@@ -25,15 +25,15 @@ export default function AssignPage() {
       return;
     }
     api.loadCandidates(selected)
-      .then((r) => setCandidates(r.candidates ?? []))
-      .catch(() => {});
+      .then((r) => setCandidates(r.ranking ?? []))
+      .catch(() => setCandidates([]));
   }, [selected]);
 
   const handleAssign = async (loadId: string, driverId: string) => {
     setAssigning(true);
     try {
       await api.assignLoad(loadId, driverId);
-      setUnassigned((prev) => prev.filter((l) => l.id !== loadId));
+      setUnassigned((prev) => prev.filter((l) => l.load_id !== loadId));
       setSelected(null);
     } catch {
       // toast error
@@ -41,6 +41,25 @@ export default function AssignPage() {
       setAssigning(false);
     }
   };
+
+  // When no candidates from API, show all drivers from realtime store
+  const driverList = selected && candidates.length > 0
+    ? candidates.map((c) => ({
+        id: c.driver_id,
+        name: c.driver_name,
+        truck: c.truck_number,
+        hos: c.hos_drive_remaining_minutes,
+        status: c.status,
+        score: c.score,
+      }))
+    : drivers.map((d) => ({
+        id: d.driver_id,
+        name: d.name,
+        truck: d.truck_number,
+        hos: d.hos_drive_remaining_minutes,
+        status: d.status as string,
+        score: null as number | null,
+      }));
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -71,11 +90,14 @@ export default function AssignPage() {
           ) : (
             <div className="space-y-1 px-2 pb-4">
               {unassigned.map((load) => (
-                <button
-                  key={load.id}
-                  onClick={() => setSelected(load.id === selected ? null : load.id)}
-                  className={`w-full rounded px-3 py-2.5 text-left transition-colors ${
-                    selected === load.id
+                <div
+                  key={load.load_id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelected(load.load_id === selected ? null : load.load_id)}
+                  onKeyDown={(e) => { if (e.key === "Enter") setSelected(load.load_id === selected ? null : load.load_id); }}
+                  className={`w-full rounded px-3 py-2.5 text-left transition-colors cursor-pointer ${
+                    selected === load.load_id
                       ? "bg-ink-900 text-white"
                       : "bg-ink-50 text-ink-700 hover:bg-ink-100"
                   }`}
@@ -85,17 +107,17 @@ export default function AssignPage() {
                       {load.load_number}
                     </span>
                     <span className={`text-[11px] font-mono tabular-nums ${
-                      selected === load.id ? "text-ink-300" : "text-ink-400"
+                      selected === load.load_id ? "text-ink-300" : "text-ink-400"
                     }`}>
                       {formatMoney(load.rate_linehaul)}
                     </span>
                   </div>
                   <div className={`mt-1 text-[11px] font-mono ${
-                    selected === load.id ? "text-ink-400" : "text-ink-400"
+                    selected === load.load_id ? "text-ink-400" : "text-ink-400"
                   }`}>
-                    {load.pickup_city} → {load.delivery_city}
+                    {load.pickup_name} → {load.delivery_name}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -104,7 +126,7 @@ export default function AssignPage() {
         {/* Right: driver list */}
         <div className="flex-1 overflow-auto">
           <div className="px-4 py-3 text-[10px] font-mono uppercase tracking-widest text-ink-400">
-            {selected ? "Suggested drivers" : "Select a load to see matches"}
+            {selected ? "Available drivers" : "Select a load to see matches"}
           </div>
 
           {selected && candidates.length > 0 && (
@@ -122,53 +144,55 @@ export default function AssignPage() {
                     Truck #{candidates[0].truck_number}
                   </span>
                 </div>
-                <button
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleAssign(selected, candidates[0].driver_id)}
-                  disabled={assigning}
-                  className="rounded bg-ink-900 px-3 py-1 text-[11px] font-mono font-medium text-white hover:bg-ink-800 disabled:opacity-50"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAssign(selected, candidates[0].driver_id); }}
+                  className={`rounded bg-ink-900 px-3 py-1 text-[11px] font-mono font-medium text-white hover:bg-ink-800 cursor-pointer ${assigning ? "opacity-50 pointer-events-none" : ""}`}
                 >
                   Assign
-                </button>
+                </div>
               </div>
             </div>
           )}
 
           <div className="space-y-0.5 px-2 pb-4">
-            {(selected ? candidates : drivers).map((d: any) => {
-              const driverId = d.driver_id || d.id;
-              const name = d.driver_name || d.name;
-              const truck = d.truck_number;
-              const hos = d.hos_drive_remaining_min ?? d.hos_drive_remaining_minutes ?? 0;
+            {driverList.map((d) => {
               const hosMax = 660;
-              const hosPct = Math.min(hos / hosMax, 1);
+              const hosPct = Math.min(d.hos / hosMax, 1);
 
               return (
                 <div
-                  key={driverId}
+                  key={d.id}
                   className="flex items-center gap-3 rounded px-3 py-2.5 hover:bg-ink-50 transition-colors"
                 >
                   <div className={`h-2 w-2 rounded-full shrink-0 ${
-                    hos > 120 ? "bg-emerald-500" : hos > 60 ? "bg-amber-500" : "bg-red-500"
+                    d.hos > 120 ? "bg-emerald-500" : d.hos > 60 ? "bg-amber-500" : "bg-red-500"
                   }`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[13px] font-mono font-semibold text-ink-900 truncate">
-                        {name}
+                        {d.name}
                       </span>
                       <span className="text-[11px] font-mono text-ink-400">
-                        #{truck}
+                        #{d.truck}
                       </span>
+                      {d.score !== null && (
+                        <span className="text-[10px] font-mono text-ink-300">
+                          score: {d.score.toFixed(1)}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-1 flex items-center gap-3">
                       <div className="flex items-center gap-1 text-[11px] font-mono text-ink-400">
                         <Clock size={10} />
-                        {Math.floor(hos / 60)}h {hos % 60}m
+                        {Math.floor(d.hos / 60)}h {d.hos % 60}m
                       </div>
-                      {/* HOS bar */}
                       <div className="h-1 w-16 rounded-full bg-ink-100 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${
-                            hos > 120 ? "bg-emerald-500" : hos > 60 ? "bg-amber-500" : "bg-red-500"
+                            d.hos > 120 ? "bg-emerald-500" : d.hos > 60 ? "bg-amber-500" : "bg-red-500"
                           }`}
                           style={{ width: `${hosPct * 100}%` }}
                         />
@@ -176,17 +200,24 @@ export default function AssignPage() {
                     </div>
                   </div>
                   {selected && (
-                    <button
-                      onClick={() => handleAssign(selected, driverId)}
-                      disabled={assigning}
-                      className="shrink-0 rounded border border-ink-200 px-2.5 py-1 text-[11px] font-mono font-medium text-ink-600 hover:bg-ink-50 disabled:opacity-50"
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleAssign(selected, d.id)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleAssign(selected, d.id); }}
+                      className={`shrink-0 rounded border border-ink-200 px-2.5 py-1 text-[11px] font-mono font-medium text-ink-600 hover:bg-ink-50 cursor-pointer ${assigning ? "opacity-50 pointer-events-none" : ""}`}
                     >
                       Assign
-                    </button>
+                    </div>
                   )}
                 </div>
               );
             })}
+            {driverList.length === 0 && selected && (
+              <div className="px-4 py-8 text-center text-[12px] font-mono text-ink-300">
+                No drivers available
+              </div>
+            )}
           </div>
         </div>
       </div>

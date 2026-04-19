@@ -100,9 +100,12 @@ export default function NavSidebar() {
       `}
     >
       {/* Logo / collapse toggle */}
-      <button
+      <div
         onClick={toggle}
-        className="flex items-center gap-2 px-4 py-3 text-ink-400 hover:text-ink-700 transition-colors border-b border-ink-100"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggle(); }}
+        className="flex items-center gap-2 px-4 py-3 text-ink-400 hover:text-ink-700 transition-colors border-b border-ink-100 cursor-pointer"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         <div className="h-5 w-5 rounded bg-ink-900 flex items-center justify-center">
@@ -113,7 +116,7 @@ export default function NavSidebar() {
             RELAY
           </span>
         )}
-      </button>
+      </div>
 
       {/* Main nav */}
       <div className="flex-1 py-2 space-y-0.5">
@@ -122,30 +125,36 @@ export default function NavSidebar() {
 
       {/* New Load button */}
       <div className="px-2 pb-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              className={`
-                flex items-center justify-center gap-2 w-full rounded
-                bg-ink-900 text-white py-2 text-[12px] font-mono font-medium
-                hover:bg-ink-800 transition-colors
-                ${collapsed ? "px-0" : "px-3"}
-              `}
-              aria-label="New Load"
-            >
-              <Plus size={14} />
-              {!collapsed && <span>New Load</span>}
-            </button>
-          </TooltipTrigger>
-          {collapsed && (
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                role="button"
+                tabIndex={0}
+                className="flex items-center justify-center w-full rounded bg-ink-900 text-white py-2 text-[12px] font-mono font-medium hover:bg-ink-800 transition-colors cursor-pointer"
+                aria-label="New Load"
+              >
+                <Plus size={14} />
+              </div>
+            </TooltipTrigger>
             <TooltipContent
               side="right"
               className="bg-ink-900 text-white font-mono text-[11px] px-2 py-1"
             >
               New Load
             </TooltipContent>
-          )}
-        </Tooltip>
+          </Tooltip>
+        ) : (
+          <div
+            role="button"
+            tabIndex={0}
+            className="flex items-center justify-center gap-2 w-full rounded bg-ink-900 text-white py-2 px-3 text-[12px] font-mono font-medium hover:bg-ink-800 transition-colors cursor-pointer"
+            aria-label="New Load"
+          >
+            <Plus size={14} />
+            <span>New Load</span>
+          </div>
+        )}
       </div>
 
       {/* Bottom items */}
