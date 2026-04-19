@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SplitSquareHorizontal, Clock, Zap } from "lucide-react";
-import { api, UnassignedLoad, CandidateScore } from "@/lib/api";
+import { SplitSquareHorizontal, Clock, Zap, AlertTriangle, Brain } from "lucide-react";
+import { api, UnassignedLoad, CandidateScore, AiRecommendation } from "@/lib/api";
 import { useDrivers } from "@/lib/realtime";
 import { formatMoney } from "@/lib/time";
 
@@ -11,6 +11,7 @@ export default function AssignPage() {
   const [unassigned, setUnassigned] = useState<UnassignedLoad[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<CandidateScore[]>([]);
+  const [aiRec, setAiRec] = useState<AiRecommendation | null>(null);
   const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
@@ -22,11 +23,15 @@ export default function AssignPage() {
   useEffect(() => {
     if (!selected) {
       setCandidates([]);
+      setAiRec(null);
       return;
     }
     api.loadCandidates(selected)
-      .then((r) => setCandidates(r.ranking ?? []))
-      .catch(() => setCandidates([]));
+      .then((r) => {
+        setCandidates(r.ranking ?? []);
+        setAiRec(r.ai_recommendation ?? null);
+      })
+      .catch(() => { setCandidates([]); setAiRec(null); });
   }, [selected]);
 
   const handleAssign = async (loadId: string, driverId: string) => {
@@ -129,11 +134,42 @@ export default function AssignPage() {
             {selected ? "Available drivers" : "Select a load to see matches"}
           </div>
 
+          {/* AI Recommendation panel */}
+          {selected && aiRec && (
+            <div className="mx-4 mb-3 rounded border border-blue-200 bg-blue-50/40 px-4 py-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-blue-700 mb-2">
+                <Brain size={12} />
+                AI recommendation
+                <span className={`ml-1 rounded px-1 py-0.5 text-[9px] ${
+                  aiRec.confidence === "high" ? "bg-emerald-100 text-emerald-700" :
+                  aiRec.confidence === "medium" ? "bg-amber-100 text-amber-700" :
+                  "bg-red-100 text-red-700"
+                }`}>
+                  {aiRec.confidence} confidence
+                </span>
+              </div>
+              <p className="text-[12px] font-mono text-ink-700 leading-relaxed mb-2">
+                {aiRec.recommendation}
+              </p>
+              {aiRec.risk_flags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {aiRec.risk_flags.map((flag, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-mono text-amber-800">
+                      <AlertTriangle size={9} />
+                      {flag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Suggested match from scoring */}
           {selected && candidates.length > 0 && (
             <div className="mx-4 mb-3 rounded border border-amber-200 bg-amber-50/50 px-3 py-2">
               <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-amber-700 mb-1.5">
                 <Zap size={12} />
-                Suggested match
+                Top ranked driver
               </div>
               <div className="flex items-center justify-between">
                 <div>
@@ -142,6 +178,9 @@ export default function AssignPage() {
                   </span>
                   <span className="ml-2 text-[11px] font-mono text-ink-400">
                     Truck #{candidates[0].truck_number}
+                  </span>
+                  <span className="ml-2 text-[10px] font-mono text-ink-300">
+                    score: {candidates[0].score.toFixed(1)}
                   </span>
                 </div>
                 <div
@@ -154,6 +193,21 @@ export default function AssignPage() {
                   Assign
                 </div>
               </div>
+              {/* Scoring breakdown */}
+              {candidates[0].components && Object.keys(candidates[0].components).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {Object.entries(candidates[0].components).map(([k, v]) => (
+                    <span key={k} className="text-[10px] font-mono text-ink-400">
+                      {k}: <span className="text-ink-600 font-medium">{(v as number).toFixed(1)}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {candidates[0].disqualification_reason && (
+                <p className="mt-1 text-[10px] font-mono text-red-500">
+                  {candidates[0].disqualification_reason}
+                </p>
+              )}
             </div>
           )}
 
