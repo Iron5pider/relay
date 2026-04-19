@@ -11,27 +11,25 @@ export default function CTA() {
             15-minute live walkthrough on your actual lanes. If we can't show
             you $1,000+ in unbilled detention by the end, the call's on us.
           </p>
-          <form
-            className="mx-auto mt-10 flex w-full max-w-md flex-col gap-3 sm:flex-row"
-            action="#"
-            method="post"
-          >
-            <input
-              type="email"
-              required
-              placeholder="dispatcher@yourfleet.com"
-              className="flex-1 rounded-full border border-ink-200 bg-white px-5 py-3 text-sm text-ink-800 placeholder:text-ink-400 focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-100"
-            />
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-ink-900 px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ink-800"
+          <div className="mx-auto mt-10 flex w-full max-w-md flex-col items-center justify-center gap-3 sm:flex-row">
+            <a
+              href="/dashboard"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-accent-600 px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-accent-700 sm:w-auto"
             >
-              Book demo
-            </button>
-          </form>
+              Open command center
+              <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                <path fillRule="evenodd" d="M7.22 14.78a.75.75 0 010-1.06L10.94 10 7.22 6.28a.75.75 0 111.06-1.06l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06 0z" clipRule="evenodd" />
+              </svg>
+            </a>
+            <a
+              href="#features"
+              className="inline-flex w-full items-center justify-center rounded-full border border-ink-200 bg-white px-6 py-3 text-sm font-semibold text-ink-700 transition hover:border-ink-300 hover:text-ink-900 sm:w-auto"
+            >
+              See how it works
+            </a>
+          </div>
           <p className="mt-3 text-xs text-ink-400">
-            No credit card. No calendar ping-pong. Pick a slot and we'll be
-            there.
+            Live dispatcher dashboard. Exception rows, live transcripts, dispute-ready invoices.
           </p>
         </div>
       </div>

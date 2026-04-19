@@ -30,10 +30,10 @@ export default function Hero() {
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
-              href="#demo"
-              className="inline-flex items-center gap-2 rounded-full bg-ink-900 px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ink-800"
+              href="/dashboard"
+              className="inline-flex items-center gap-2 rounded-full bg-accent-600 px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-accent-700"
             >
-              Book a 15-minute demo
+              Open command center
               <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                 <path
                   fillRule="evenodd"

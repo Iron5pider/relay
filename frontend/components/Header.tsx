@@ -29,17 +29,17 @@ export default function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          <a
-            href="#demo"
+          <Link
+            href="/dashboard"
             className="hidden text-sm font-medium text-ink-600 hover:text-ink-900 md:block"
           >
-            Sign in
-          </a>
-          <a
-            href="#demo"
+            Open dashboard
+          </Link>
+          <Link
+            href="/dashboard"
             className="inline-flex items-center gap-1.5 rounded-full bg-ink-900 px-4 py-2 text-sm font-medium text-white shadow-soft transition-transform hover:-translate-y-0.5 hover:bg-ink-800"
           >
-            Book a demo
+            Enter command center
             <svg
               aria-hidden
               viewBox="0 0 20 20"
@@ -52,7 +52,7 @@ export default function Header() {
                 clipRule="evenodd"
               />
             </svg>
-          </a>
+          </Link>
         </div>
       </div>
     </header>
