@@ -161,12 +161,23 @@ async def post_call(
             vc.trigger_reason = dyn_vars.get("trigger_reason")
 
     vc.transcript = data.get("transcript", [])
-    vc.analysis_json = data.get("analysis", {}) or {}
-    vc.structured_data_json = (data.get("analysis", {}) or {}).get(
-        "data_collection_results", {}
-    )
+    metadata = data.get("metadata") or {}
+    analysis_block = dict(data.get("analysis") or {})
+    # Thread selected metadata into analysis_json so the /calls detail endpoint
+    # can surface cost + audio flag without new columns.
+    if metadata:
+        analysis_block.setdefault("cost", metadata.get("cost"))
+    analysis_block.setdefault("has_audio", data.get("has_audio"))
+    phone_call = metadata.get("phone_call") or {}
+    if phone_call:
+        analysis_block.setdefault("phone_call", phone_call)
+    vc.analysis_json = analysis_block
+    vc.structured_data_json = analysis_block.get("data_collection_results") or {}
+    vc.termination_reason = metadata.get("termination_reason")
     vc.call_status = _map_status(data.get("status", "done"))
-    vc.duration_seconds = int(data.get("call_duration_secs") or 0) or None
+    vc.duration_seconds = int(
+        data.get("call_duration_secs") or metadata.get("call_duration_secs") or 0
+    ) or None
 
     started_at = _parse_iso(data.get("started_at"))
     ended_at = _parse_iso(data.get("ended_at")) or datetime.now(timezone.utc)

@@ -189,6 +189,10 @@ class VoiceCall(Base):
     # Anomaly-agent rationale when the call was fired from the Claude layer.
     # Null on hard-rule-fired calls. Surfaced verbatim in the AnomalyBadge tooltip.
     trigger_reasoning: Mapped[str | None] = mapped_column(Text)
+    # ElevenLabs `data.metadata.termination_reason` — why the call ended
+    # ("voicemail detected", "Missing required dynamic variables: …",
+    # "caller hangup"). Shown verbatim on the Calls detail modal.
+    termination_reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
