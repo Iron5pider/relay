@@ -213,6 +213,79 @@ export interface Call {
   trigger_reasoning: string | null;
 }
 
+// ---------- Calls section (dashboard-facing shapes, extra of the canonical Call) ----------
+// These mirror the output of `/dispatcher/calls` and `/dispatcher/calls/{id}`
+// and are distinct from `Call` above because the dispatcher view surfaces
+// ElevenLabs analysis output that the canonical domain model doesn't carry.
+
+export interface CallListRow {
+  call_id: UUID;
+  conversation_id: string | null;
+  agent_id: string | null;
+  direction: CallDirection;
+  purpose: CallPurpose;
+  call_status: string;
+  outcome: CallOutcome;
+  trigger_reason: string | null;
+  language: Language;
+  duration_seconds: number | null;
+  started_at: ISODateTime;
+  ended_at: ISODateTime | null;
+  load_id: UUID | null;
+  driver_id: UUID | null;
+  termination_reason: string | null;
+  call_summary_title: string | null;
+  transcript_summary: string | null;
+  has_audio: boolean | null;
+  cost: number | null;
+}
+
+export interface EvaluationCriterion {
+  criteria_id: string;
+  result: 'success' | 'failure' | 'unknown' | string;
+  rationale: string | null;
+}
+
+export interface DataCollectionField {
+  data_collection_id: string;
+  value: string | number | boolean | null;
+  rationale: string | null;
+  description: string | null;
+  type: string | null;
+}
+
+export interface CallTranscriptTurn {
+  role: 'agent' | 'user' | string;
+  message: string | null;
+  time_in_call_secs: number | null;
+  tool_calls: unknown[];
+  interrupted: boolean | null;
+}
+
+export interface CallPhoneMeta {
+  type: string | null;
+  direction: string | null;
+  from_number: string | null;
+  to_number: string | null;
+  phone_number_id: string | null;
+  call_sid: string | null;
+  agent_number: string | null;
+  external_number: string | null;
+}
+
+export interface CallDetail extends CallListRow {
+  trigger_reasoning: string | null;
+  audio_url: string | null;
+  call_successful: string | null;
+  phone_call: CallPhoneMeta;
+  transcript: CallTranscriptTurn[];
+  evaluation_criteria_results: EvaluationCriterion[];
+  data_collection_results: DataCollectionField[];
+  driver: DriverLite | null;
+  load: unknown | null;
+  broker: BrokerLite | null;
+}
+
 // ---------- Detention invoice ----------
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'disputed';
 

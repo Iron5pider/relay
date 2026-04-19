@@ -267,6 +267,31 @@ export const api = {
     return post(`/dispatcher/invoices/${invoiceId}/send`);
   },
 
+  // --- calls section ----------------------------------------------------
+
+  async callsList(params?: {
+    agent_id?: string;
+    purpose?: string;
+    outcome?: string;
+    call_status?: string;
+    driver_id?: string;
+    load_id?: string;
+    limit?: number;
+  }): Promise<{ count: number; calls: import("@/shared/types").CallListRow[] }> {
+    const q = new URLSearchParams();
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined && v !== null && v !== "") q.set(k, String(v));
+      }
+    }
+    const qs = q.toString();
+    return get(`/dispatcher/calls${qs ? `?${qs}` : ""}`);
+  },
+
+  async callDetail(callId: string): Promise<import("@/shared/types").CallDetail> {
+    return get(`/dispatcher/calls/${encodeURIComponent(callId)}`);
+  },
+
   // --- actions (call trigger) --------------------------------------------
 
   async callInitiate(body: CallInitiateRequest): Promise<CallInitiateResponse> {
