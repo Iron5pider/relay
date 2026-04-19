@@ -52,12 +52,51 @@ def _driver_by_id(drivers: list[Driver], driver_id: UUID) -> Optional[Driver]:
     return next((d for d in drivers if d.id == driver_id), None)
 
 
+async def _load_driver_from_db(driver_id: UUID) -> Optional[Driver]:
+    """Read a single driver from Supabase, bypassing the NavPro adapter."""
+    from backend.db import session as db_session
+    from backend.models.db import Driver as DBDriver
+
+    factory = db_session.AsyncSessionLocal
+    if factory is None:
+        db_session.get_engine()
+        factory = db_session.AsyncSessionLocal
+    assert factory is not None
+
+    async with factory() as session:
+        row = await session.get(DBDriver, driver_id)
+        if row is None:
+            return None
+        return Driver(
+            id=row.id,
+            name=row.name,
+            phone=row.phone,
+            preferred_language=row.preferred_language,
+            truck_number=row.truck_number,
+            current_lat=row.current_lat,
+            current_lng=row.current_lng,
+            hos_drive_remaining_minutes=row.hos_drive_remaining_minutes,
+            hos_shift_remaining_minutes=row.hos_shift_remaining_minutes,
+            hos_cycle_remaining_minutes=row.hos_cycle_remaining_minutes,
+            hos_remaining_minutes=row.hos_remaining_minutes,
+            status=row.status,
+            fatigue_level=row.fatigue_level,
+            last_checkin_at=row.last_checkin_at.isoformat().replace("+00:00", "Z") if row.last_checkin_at else None,
+            next_scheduled_checkin_at=row.next_scheduled_checkin_at.isoformat().replace("+00:00", "Z") if row.next_scheduled_checkin_at else None,
+            updated_at=row.updated_at.isoformat().replace("+00:00", "Z") if row.updated_at else _now_utc_iso(),
+        )
+
+
 async def collect_snapshot(
     driver_id: UUID,
     breadcrumb_lookback_minutes: int = 60,
 ) -> NavProSnapshot:
-    """Produce one tick's NavProSnapshot. Never raises — endpoint failures
-    surface via per-endpoint `*_ok` flags + `degraded_reason`."""
+    """Produce one tick's NavProSnapshot.
+
+    Driver identity + location come from Supabase (always available).
+    NavPro-specific fields (breadcrumbs, trip ETA, performance) attempt the
+    adapter and gracefully degrade when it's stubbed.
+    """
     import asyncio
 
     adapter = get_adapter()
@@ -69,14 +108,31 @@ async def collect_snapshot(
         end_iso_utc=now_dt.isoformat().replace("+00:00", "Z"),
     )
 
-    driver_task = adapter.list_drivers()
+    snap = NavProSnapshot(
+        driver_id=driver_id,
+        fetched_at_utc=_now_utc_iso(),
+    )
+    degraded_parts: list[str] = []
+
+    # --- Driver identity + location from Supabase (reliable) ---
+    driver = await _load_driver_from_db(driver_id)
+    if driver is not None:
+        snap.last_known_lat = driver.current_lat
+        snap.last_known_lng = driver.current_lng
+        snap.latest_update_utc = driver.updated_at
+        snap.tracking_stale_minutes = _minutes_since(driver.updated_at)
+        snap.work_status = driver.status.value
+    else:
+        snap.driver_query_ok = False
+        degraded_parts.append("db_driver:not_found")
+
+    # --- NavPro-specific endpoints (best-effort) ---
     location_task = adapter.get_location(driver_id)
     breadcrumbs_task = adapter.get_breadcrumbs(driver_id, tr)
     active_trip_task = adapter.get_active_trip_eta(driver_id)
     performance_task = adapter.get_performance(driver_id, tr)
 
     results = await asyncio.gather(
-        driver_task,
         location_task,
         breadcrumbs_task,
         active_trip_task,
@@ -84,34 +140,13 @@ async def collect_snapshot(
         return_exceptions=True,
     )
 
-    drivers_raw, location_raw, trail_raw, eta_raw, performance_raw = results
-
-    snap = NavProSnapshot(
-        driver_id=driver_id,
-        fetched_at_utc=_now_utc_iso(),
-    )
-
-    # --- /api/driver/query slot ---
-    degraded_parts: list[str] = []
-    if isinstance(drivers_raw, Exception):
-        snap.driver_query_ok = False
-        degraded_parts.append(f"list_drivers:{type(drivers_raw).__name__}")
-    else:
-        driver = _driver_by_id(drivers_raw, driver_id)
-        if driver is not None:
-            snap.last_known_lat = driver.current_lat
-            snap.last_known_lng = driver.current_lng
-            snap.latest_update_utc = driver.updated_at
-            snap.tracking_stale_minutes = _minutes_since(driver.updated_at)
-            # We don't have NavPro's raw `work_status` in the canonical
-            # Driver — fall back to canonical status for now; a future
-            # iteration can carry the raw string through.
-            snap.work_status = driver.status.value
+    location_raw, trail_raw, eta_raw, performance_raw = results
 
     # --- /api/tracking/get/driver-dispatch slot ---
     if isinstance(location_raw, Exception):
         snap.tracking_ok = False
-        degraded_parts.append(f"get_location:{type(location_raw).__name__}")
+        if not isinstance(location_raw, NotImplementedError):
+            degraded_parts.append(f"get_location:{type(location_raw).__name__}")
     else:
         ping: LocationPing = location_raw  # type: ignore[assignment]
         if snap.last_known_lat is None:
@@ -123,7 +158,8 @@ async def collect_snapshot(
 
     if isinstance(trail_raw, Exception):
         snap.tracking_ok = False
-        degraded_parts.append(f"get_breadcrumbs:{type(trail_raw).__name__}")
+        if not isinstance(trail_raw, NotImplementedError):
+            degraded_parts.append(f"get_breadcrumbs:{type(trail_raw).__name__}")
     else:
         trail: list[LocationPing] = trail_raw  # type: ignore[assignment]
         snap.trail_last_1h_points = len(trail)
@@ -138,14 +174,16 @@ async def collect_snapshot(
 
     if isinstance(eta_raw, Exception):
         snap.tracking_ok = False
-        degraded_parts.append(f"get_active_trip_eta:{type(eta_raw).__name__}")
+        if not isinstance(eta_raw, NotImplementedError):
+            degraded_parts.append(f"get_active_trip_eta:{type(eta_raw).__name__}")
     else:
         snap.active_trip_eta_utc = eta_raw  # type: ignore[assignment]
 
     # --- /api/driver/performance/query slot ---
     if isinstance(performance_raw, Exception):
         snap.performance_ok = False
-        degraded_parts.append(f"get_performance:{type(performance_raw).__name__}")
+        if not isinstance(performance_raw, NotImplementedError):
+            degraded_parts.append(f"get_performance:{type(performance_raw).__name__}")
     else:
         perf: PerformanceSnapshot = performance_raw  # type: ignore[assignment]
         snap.oor_miles_last_24h = perf.oor_miles
