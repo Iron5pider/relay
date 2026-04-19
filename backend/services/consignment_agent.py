@@ -167,9 +167,10 @@ async def recommend(load: Load, ranked: list[ScoreBreakdown]) -> dict[str, Any]:
         return _fallback(ranked)
     except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "event=consignment_agent_error load_id=%s err=%s",
+            "event=consignment_agent_error load_id=%s err=%s msg=%s",
             load.id,
             type(exc).__name__,
+            str(exc)[:300].replace("\n", " "),
         )
         return _fallback(ranked)
 
