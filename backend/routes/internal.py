@@ -14,6 +14,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.deps import get_db
@@ -167,6 +168,42 @@ async def batch_broker_updates(
 
     logger.info("event=batch_broker_updates batch_id=%s count=%d", batch_id, len(call_ids))
     return ok({"batch_id": batch_id, "call_ids": call_ids, "count": len(call_ids)})
+
+
+class SchedulerTickRequest(BaseModel):
+    # Optional — omit to run the full roster, or pass a driver_id to run one.
+    driver_id: str | None = None
+
+
+@router.post("/scheduler/tick")
+async def scheduler_tick(body: SchedulerTickRequest | None = None):
+    """Manually run one pass of the proactive-checkin scheduler.
+
+    Useful now that the automatic cadence is 12h. Runs the same
+    `tick_driver` the cron runs — NavPro poll → exceptions_engine →
+    anomaly_agent → trigger — and returns the driver ids processed.
+
+    Takes ~3-20s for the full roster because each driver can hit the
+    3s Claude timeout. Not for hot path.
+    """
+    from backend.services import checkin_scheduler
+
+    target_id = body.driver_id if body else None
+    if target_id:
+        ids = [target_id]
+    else:
+        drivers = await checkin_scheduler._list_drivers_from_db()
+        ids = [d.id for d in drivers]
+
+    for did in ids:
+        await checkin_scheduler.tick_driver(
+            did,
+            checkin_scheduler._default_context_loader,
+            checkin_scheduler._default_trigger,
+        )
+
+    logger.info("event=scheduler_tick_manual count=%d", len(ids))
+    return ok({"count": len(ids), "drivers_ticked": ids})
 
 
 __all__ = ["router"]
