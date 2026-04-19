@@ -14,7 +14,9 @@ export default function AssignPage() {
   const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
-    api.unassignedLoads().then(setUnassigned).catch(() => {});
+    api.unassignedLoads()
+      .then((r) => setUnassigned(r.loads ?? []))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -22,7 +24,9 @@ export default function AssignPage() {
       setCandidates([]);
       return;
     }
-    api.candidates(selected).then((r) => setCandidates(r.candidates)).catch(() => {});
+    api.loadCandidates(selected)
+      .then((r) => setCandidates(r.candidates ?? []))
+      .catch(() => {});
   }, [selected]);
 
   const handleAssign = async (loadId: string, driverId: string) => {
