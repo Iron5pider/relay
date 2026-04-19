@@ -8,11 +8,13 @@ so the agent can still ground.
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config import settings
 from backend.models.db import Driver, Load
 
 
@@ -36,6 +38,17 @@ async def resolve_inbound_caller(
                 "caller_id": caller_id,
                 "trigger_reason": "inbound",
                 "preferred_language": "en",
+                "driver_first_name": "driver",
+                "driver_name": "driver",
+                "truck_number": "unknown",
+                "hos_drive_remaining_minutes": "",
+                "fatigue_level_last_known": "unknown",
+                "current_load_id": "",
+                "current_lat": None,
+                "current_lng": None,
+                "last_gps_city": None,
+                "secret__relay_token": settings.relay_internal_token,
+                "voice_call_id": str(uuid.uuid4()),
             },
             "first_message_override": (
                 "Radar dispatch, this is Maya — who am I speaking with?"
@@ -52,12 +65,18 @@ async def resolve_inbound_caller(
     dv: dict[str, Any] = {
         "driver_id": driver.id,
         "driver_name": first_name,
+        "driver_first_name": first_name,
         "truck_number": driver.truck_number,
         "preferred_language": driver.preferred_language,
         "trigger_reason": "inbound",
         "hos_drive_remaining_minutes": driver.hos_drive_remaining_minutes,
+        "fatigue_level_last_known": driver.fatigue_level,
         "current_load_id": load.id if load else None,
+        "current_lat": driver.current_lat,
+        "current_lng": driver.current_lng,
         "last_gps_city": None,  # Block 2 adds reverse geocoding
+        "secret__relay_token": settings.relay_internal_token,
+        "voice_call_id": str(uuid.uuid4()),
     }
 
     greetings = {
