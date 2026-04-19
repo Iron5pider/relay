@@ -13,6 +13,7 @@ import {
   Building2,
   Settings,
   Plus,
+  PhoneCall,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/active", icon: Truck, label: "Active" },
   { href: "/dashboard/completed", icon: CheckSquare, label: "Completed" },
   { href: "/dashboard/billing", icon: Receipt, label: "Billing" },
+  { href: "/dashboard/calls", icon: PhoneCall, label: "Calls" },
   { href: "/dashboard/drivers", icon: Users, label: "Drivers" },
   { href: "/dashboard/customers", icon: Building2, label: "Customers" },
 ];
