@@ -45,7 +45,14 @@ class Settings(BaseSettings):
     elevenlabs_agent_broker_update_id: str = ""
     elevenlabs_service_token: str = ""
     elevenlabs_webhook_secret: str = ""
+    # Per-agent phone-number IDs (2026-04-19). Each ElevenLabs agent links to
+    # its own Twilio number in the ElevenLabs dashboard — the orchestrator
+    # picks the right caller ID per agent_kind. `elevenlabs_phone_number_id`
+    # stays as a global fallback so older callers keep working.
     elevenlabs_phone_number_id: str = ""
+    elevenlabs_phone_number_id_detention: str = ""
+    elevenlabs_phone_number_id_driver: str = ""
+    elevenlabs_phone_number_id_broker_update: str = ""
 
     # Internal bearer token ElevenLabs sends back on every tool call
     # (secret__relay_token dynamic variable). Mint locally + put in .env.

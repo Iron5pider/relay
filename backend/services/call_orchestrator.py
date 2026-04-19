@@ -43,6 +43,21 @@ def _agent_id_for(kind: AgentKind) -> str:
     return agent_id
 
 
+def _phone_number_id_for(kind: AgentKind) -> str:
+    """Pick the ElevenLabs phone_number_id for the agent kind.
+
+    Each agent has its own linked Twilio number so the caller ID reflects the
+    purpose (detention line, driver line, broker line). Falls back to the
+    global `ELEVENLABS_PHONE_NUMBER_ID` if the per-agent one is unset.
+    """
+    mapping = {
+        "driver_agent": settings.elevenlabs_phone_number_id_driver,
+        "detention_agent": settings.elevenlabs_phone_number_id_detention,
+        "broker_update_agent": settings.elevenlabs_phone_number_id_broker_update,
+    }
+    return mapping.get(kind, "") or settings.elevenlabs_phone_number_id
+
+
 async def place_outbound_call(
     *,
     db: AsyncSession,
@@ -64,12 +79,15 @@ async def place_outbound_call(
     """
     if not settings.elevenlabs_api_key:
         raise RuntimeError("ELEVENLABS_API_KEY is empty; cannot place outbound call.")
-    if not settings.elevenlabs_phone_number_id:
-        raise RuntimeError(
-            "ELEVENLABS_PHONE_NUMBER_ID is empty. Grab it from the ElevenLabs "
-            "dashboard → Phone Numbers after connecting your Twilio account."
-        )
     agent_id = _agent_id_for(agent_kind)
+    phone_number_id = _phone_number_id_for(agent_kind)
+    if not phone_number_id:
+        raise RuntimeError(
+            f"No ElevenLabs phone_number_id configured for {agent_kind!r}. "
+            f"Set ELEVENLABS_PHONE_NUMBER_ID_"
+            f"{agent_kind.replace('_agent','').upper()} in env "
+            f"(or the global ELEVENLABS_PHONE_NUMBER_ID as a fallback)."
+        )
 
     voice_call_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
@@ -107,7 +125,7 @@ async def place_outbound_call(
 
     payload: dict[str, Any] = {
         "agent_id": agent_id,
-        "agent_phone_number_id": settings.elevenlabs_phone_number_id,
+        "agent_phone_number_id": phone_number_id,
         "to_number": to_number,
         "conversation_initiation_client_data": {
             "dynamic_variables": merged_vars,
