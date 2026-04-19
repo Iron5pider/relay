@@ -2,8 +2,7 @@
 a `NavProAdapter` instance. Routes/services only ever see the ABC.
 
 `mock` is the fresh-checkout + Wi-Fi-fallback mode. `navpro` is production.
-`samsara` is the Q&A sanity check. Field-provenance lives in
-`API_DOCS/NavPro_integration.md` §1.
+Field-provenance lives in `API_DOCS/NavPro_integration.md` §1.
 """
 
 from __future__ import annotations
@@ -23,11 +22,7 @@ def get_adapter() -> NavProAdapter:
         from .navpro import NavProHTTPAdapter
 
         return NavProHTTPAdapter()
-    if impl == "samsara":
-        from .samsara import SamsaraAdapter
-
-        return SamsaraAdapter()
-    raise ValueError(f"Unknown RELAY_ADAPTER: {impl!r}. Expected mock|navpro|samsara.")
+    raise ValueError(f"Unknown RELAY_ADAPTER: {impl!r}. Expected mock|navpro.")
 
 
 __all__ = ["NavProAdapter", "get_adapter"]

@@ -87,7 +87,6 @@ Build Plan owns the sponsor/identity tasks. Backend-side inside Block 0:
 - `backend/services/adapters/base.py` — ABC mirroring API Models §9 (`list_drivers`, `get_hos`, `get_location`, `get_breadcrumbs`, `get_trip_route`, `find_nearby_places`, `create_trip`, `assign_trip`, `send_driver_message`, `start_webhook_listener`).
 - `backend/services/adapters/navpro.py` — **real** httpx client against `https://api.truckerpath.com/navpro` (note: `/navpro` prefix before `/api/`, NOT `/v1`; Notion §4.3 inferred wrongly). Auth: `Authorization: Bearer <jwt_token>` from `settings.navpro_jwt_token`. Endpoint surface, translation tables, and the **hybrid-mode field provenance** (which fields stay seed-sourced even in `navpro` mode — HOS, parking POIs, broker, detention) live in `API_DOCS/NavPro_integration.md`. Read that before implementing.
 - `backend/services/adapters/mock_tp.py` — reads `data/*.json` + in-memory tick stream driven by `scripts/trigger_tick.py`.
-- `backend/services/adapters/samsara.py` — optional, sandbox. Not on demo path.
 - `backend/services/adapters/__init__.py::get_adapter()` — env-factory reading `settings.relay_adapter`; default `navpro`.
 
 **Gate:** `get_adapter()` returns a working impl for `mock` and `navpro`. NavPro against a recorded httpx fixture is acceptable for CI; live only on rehearsal.

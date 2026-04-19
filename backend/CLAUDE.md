@@ -33,11 +33,11 @@ Every other concern — dashboard UI, PDF rendering, marketing copy — lives in
    - ElevenLabs personalization → static bearer token in `X-Service-Token`, compared with `hmac.compare_digest`.
 4. **Every mutating action endpoint returns `202 Accepted` immediately** with an ID the dashboard can subscribe to. The real work happens async. The dashboard updates via WebSocket, never by polling.
 5. **The agent tool handlers (`get_load_details`, `compute_detention_charge`, etc.) must be fast (<300ms) and deterministic.** They run inside a live phone call. A slow or flaky tool response is a dead conversation.
-6. **Never call NavPro/Samsara/Trucker Path directly from a route or service.** Always go through `adapters.get_adapter()`. The demo runs on `MockTPAdapter`; swapping to real is a one-env-var change.
+6. **Never call NavPro/Trucker Path directly from a route or service.** Always go through `adapters.get_adapter()`. The demo runs on `MockTPAdapter`; swapping to real is a one-env-var change.
 7. **Idempotency on webhooks.** Twilio and ElevenLabs retry on 5xx. Every webhook handler is a pure function of its inputs — re-delivering the same event produces the same state. Use `(provider, provider_event_id)` as a unique key.
 8. **The demo path is sacred.** Detention escalation call for load `L-12345` (Carlos → Receiver XYZ) must work on the first try every single time. Any change that touches this flow requires re-running `scripts/rehearse_hero.py` end-to-end before merging.
 9. **Time spent on code judges will not see is time stolen from the demo.** If you are about to spend more than 30 minutes on something not on the P0 list in §17, stop and ping the human.
-10. **Fake anything a judge won't touch live.** Parking data is a static JSON snapshot. Samsara integration is a compatibility table, not a running client. Audio fallbacks are pre-recorded MP4s, not reconstructed on the fly. This is not cheating — it is scope.
+10. **Fake anything a judge won't touch live.** Parking data is a static JSON snapshot. Audio fallbacks are pre-recorded MP4s, not reconstructed on the fly. This is not cheating — it is scope.
 
 ---
 
@@ -67,7 +67,7 @@ Every other concern — dashboard UI, PDF rendering, marketing copy — lives in
    │    ├── batch_calls.py         parallel broker fan-out           │
    │    ├── transcript_stream.py   ingest + rebroadcast              │
    │    ├── exceptions_engine.py   rule evaluator on telemetry tick  │
-   │    └── adapters/      NavProAdapter: mock | navpro | samsara    │
+   │    └── adapters/      NavProAdapter: mock | navpro              │
    │                                                                 │
    │  bus/                                                           │
    │    └── publisher.py           Pusher/Ably WS publish            │
@@ -113,8 +113,7 @@ backend/
 │       ├── __init__.py         # get_adapter() env-based factory
 │       ├── base.py             # NavProAdapter abstract base class
 │       ├── mock_tp.py          # MockTPAdapter — the demo runs on this
-│       ├── navpro.py           # thin HTTP client (stubbed; env-gated)
-│       └── samsara.py          # optional fallback against sandbox
+│       └── navpro.py           # thin HTTP client (stubbed; env-gated)
 │
 ├── models/
 │   ├── schemas.py              # Pydantic: request/response + domain types
@@ -642,9 +641,8 @@ class NavProAdapter(ABC):
 ```python
 # services/adapters/__init__.py
 def get_adapter() -> NavProAdapter:
-    impl = settings.relay_adapter        # "mock" | "navpro" | "samsara"
-    return {"mock": MockTPAdapter, "navpro": NavProAdapter,
-            "samsara": SamsaraAdapter}[impl]()
+    impl = settings.relay_adapter        # "mock" | "navpro"
+    return {"mock": MockTPAdapter, "navpro": NavProAdapter}[impl]()
 ```
 
 **`NavProAdapter` is the production default** (per 2026-04-18 changelog). Live HTTP client against `https://api.truckerpath.com/navpro`, auth via `Authorization: Bearer <jwt_token>` loaded from `relay-credentials.json`. Endpoint surface + translation tables + **the known gaps** (HOS, parking moat, messaging, webhooks, broker, detention — concepts Relay needs that NavPro v1.0 doesn't expose) live in **`API_DOCS/NavPro_integration.md`**. Read that before writing `services/adapters/navpro.py`.
@@ -655,9 +653,7 @@ def get_adapter() -> NavProAdapter:
 
 **Polling, not webhooks.** NavPro v1.0 has **no push webhook channel**. `exceptions_engine` polls `POST /api/tracking/get/driver-dispatch` on a timer (30-sec for hero-load drivers, 1-min otherwise — well under the 25 QPS cap). The `/api/v1/webhooks/navpro/events/` receiver path is **reserved** for future use; don't wire a live handler yet.
 
-**Demo talking track (memorize):** *"We're live against the NavPro partner API. The adapter interface is the seam — one env var flip to `mock` if venue Wi-Fi fails. Fields NavPro doesn't expose yet — HOS, detention config, broker relationships — live in Relay's own state. Same pattern would work against Samsara's sandbox."*
-
-**`SamsaraAdapter`** is optional Q&A sanity check: public sandbox at `developers.samsara.com`. Compatibility map in API Models §4.3.
+**Demo talking track (memorize):** *"We're live against the NavPro partner API. The adapter interface is the seam — one env var flip to `mock` if venue Wi-Fi fails. Fields NavPro doesn't expose yet — HOS, detention config, broker relationships — live in Relay's own state."*
 
 ---
 
@@ -748,9 +744,8 @@ class Settings(BaseSettings):
     pusher_cluster: str = "us3"
 
     # Adapter selection
-    relay_adapter: str = "mock"                      # mock | navpro | samsara
+    relay_adapter: str = "mock"                      # mock | navpro
     navpro_api_key: str | None = None
-    samsara_sandbox_key: str | None = None
 
     # LLM (used only for post-call analysis fallback if needed)
     anthropic_api_key: str | None = None
@@ -913,7 +908,6 @@ Skip tracing, skip metrics, skip APM. You won't have time and judges won't see i
 - [ ] Call outcome classification via Claude/GPT on post-call transcript (fills `outcome` when evaluation criteria are ambiguous).
 - [ ] WhatsApp summary post-send via Twilio Conversations API.
 - [ ] `get_breadcrumbs` + HOS parking coordinator (F16 from PMD).
-- [ ] `SamsaraAdapter` wired up against sandbox for judge Q&A.
 
 **Anti-goals (do not build, even if it seems easy):**
 

@@ -1,23 +1,28 @@
-"""FastAPI dependency injection. Block-by-block these return real objects.
+"""FastAPI dependency injection.
 
-- `get_adapter` is live as of Block 1.5 (see `services/adapters/__init__.py`).
-- `get_anthropic_client` is live as of the anomaly-agent landing (2026-04-19);
-  returns None when the key is unset so the rest of the app keeps working.
-- `get_db`, `get_bus` remain stubbed until Block 1 / Block 2 land.
+- `get_db` yields an async SQLAlchemy session from the module-level pool.
+- `get_adapter` returns the configured `NavProAdapter`.
+- `get_anthropic_client` returns a memoized Anthropic async client
+  (or None when the key is unset / SDK is missing).
+- `get_bus` lands in Block 2 with the Pusher publisher.
 """
 
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Any, AsyncIterator, Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
+from backend.db.session import get_session
 from backend.services.adapters import get_adapter as _get_adapter
 from backend.services.adapters.base import NavProAdapter
 
 
-async def get_db() -> Any:
-    raise NotImplementedError("db/session.py lands in Block 1")
+async def get_db() -> AsyncIterator[AsyncSession]:
+    async for session in get_session():
+        yield session
 
 
 def get_adapter() -> NavProAdapter:
@@ -30,11 +35,6 @@ def get_bus() -> Any:
 
 @lru_cache(maxsize=1)
 def get_anthropic_client() -> Optional[Any]:
-    """Memoized Anthropic client.
-
-    Returns None when no API key is configured — the anomaly agent treats
-    this as "disabled" and degrades gracefully without raising.
-    """
     if not settings.anthropic_api_key:
         return None
     try:

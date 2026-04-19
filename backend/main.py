@@ -37,9 +37,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.anomaly_agent_enabled,
     )
 
+    # DB — ping + seed if empty (local/demo only). Both calls degrade gracefully
+    # when DATABASE_URL is unset or Supabase is unreachable; the app still boots.
+    from .db import session as db_session
+
+    db_ok = await db_session.ping()
+    logger.info("event=db_startup_ping ok=%s", db_ok)
+    if (
+        db_ok
+        and settings.seed_on_startup
+        and settings.environment in {"local", "demo"}
+    ):
+        try:
+            db_session.get_engine()
+            factory = db_session.AsyncSessionLocal
+            assert factory is not None
+            from .db.seed import seed_if_empty
+
+            async with factory() as session:
+                seeded = await seed_if_empty(session)
+            logger.info("event=db_startup_seed seeded=%s", seeded)
+        except Exception as exc:  # noqa: BLE001 — seed failure is non-fatal
+            logger.warning(
+                "event=db_startup_seed_failed err=%s", type(exc).__name__
+            )
+
     if settings.anomaly_agent_enabled:
-        # Lazy import so tests that don't exercise the scheduler avoid the
-        # Anthropic / httpx pull-in cost.
         from .services.checkin_scheduler import run_forever
 
         _scheduler_task = asyncio.create_task(run_forever(), name="checkin_scheduler")
@@ -55,6 +78,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             except asyncio.CancelledError:
                 pass
             logger.info("event=scheduler_task_stopped")
+        await db_session.dispose_engine()
         logger.info("event=app_shutdown")
 
 
@@ -94,11 +118,13 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def health() -> dict:
+        from .db.session import ping
+
         return {
             "status": "ok",
             "environment": settings.environment,
             "adapter": settings.relay_adapter,
-            "db": False,
+            "db": await ping(),
             "pusher": False,
             "claude": bool(settings.anthropic_api_key)
             and settings.anomaly_agent_enabled,

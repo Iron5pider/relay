@@ -596,7 +596,7 @@ Each is a list of `TranscriptTurn` objects with timestamps relative to call star
 - **Every outbound call placement logs** `event=call_initiated call_id=... twilio_sid=... agent_id=... purpose=...`.
 - **Pusher Debug Console** open on a second monitor during the demo — the six WS events per hero flow are the visible heartbeat.
 - **Correlation IDs** flow: FE request → BE middleware mints `request_id` → passed as Twilio `statusCallback` query param → echoed back → passed as ElevenLabs dynamic var → echoed back in tool calls and post-call. One grep per call.
-- **`/health`** returns `{"status": "ok", "twilio": bool, "elevenlabs": bool, "pusher": bool, "db": bool, "adapter": "navpro|mock|samsara"}`. 503 if any primary dep is down. Fly healthcheck reads this.
+- **`/health`** returns `{"status": "ok", "twilio": bool, "elevenlabs": bool, "pusher": bool, "db": bool, "adapter": "navpro|mock"}`. 503 if any primary dep is down. Fly healthcheck reads this.
 
 ---
 

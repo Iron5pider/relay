@@ -8,10 +8,15 @@ from pathlib import Path
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Locate backend/.env regardless of CWD (alembic runs from repo root; uvicorn
+# can run from either). The tuple lets a repo-root .env override when present.
+_BACKEND_ENV = Path(__file__).resolve().parent / ".env"
+_REPO_ENV = Path(__file__).resolve().parents[1] / ".env"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(str(_BACKEND_ENV), str(_REPO_ENV)),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -52,12 +57,12 @@ class Settings(BaseSettings):
     navpro_public_key: str = ""
     navpro_private_key: str = ""
     navpro_webhook_secret: str | None = None
-    samsara_sandbox_key: str | None = None
 
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
 
     demo_safe_mode: bool = True
+    seed_on_startup: bool = True
     batch_calls_max_concurrency: int = 8
 
     # Anomaly agent (Claude Sonnet 4.6 reasoning layer at the Relay ↔ NavPro seam).
@@ -104,6 +109,25 @@ class Settings(BaseSettings):
         if not self.navpro_private_key:
             self.navpro_private_key = data.get("private_key", "")
         return self
+
+
+    @property
+    def database_url_async(self) -> str:
+        """Return DATABASE_URL with the asyncpg driver scheme.
+
+        Supabase gives a `postgresql://…` URL; SQLAlchemy + asyncpg needs
+        `postgresql+asyncpg://…`. Idempotent — already-async URLs pass through.
+        """
+        url = self.database_url
+        if not url:
+            return ""
+        if url.startswith("postgresql+asyncpg://"):
+            return url
+        if url.startswith("postgresql://"):
+            return "postgresql+asyncpg://" + url[len("postgresql://"):]
+        if url.startswith("postgres://"):  # legacy Heroku-style
+            return "postgresql+asyncpg://" + url[len("postgres://"):]
+        return url
 
 
 settings = Settings()

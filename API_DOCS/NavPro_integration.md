@@ -20,16 +20,17 @@
                                   │
          ┌────────────────────────┼─────────────────────────────────────┐
          │                        │                                     │
-    ┌────▼──────┐          ┌──────▼────────┐                   ┌────────▼──────┐
-    │ MockTPAdapter │      │ NavProAdapter  │                   │ SamsaraAdapter│
-    │ reads         │      │ httpx →         │                   │ sandbox only  │
-    │ data/*.json   │      │ api.truckerpath │                   │ sanity check  │
-    │ (canonical)   │      │ .com/navpro     │                   │               │
-    └───────────────┘      └────────┬────────┘                   └───────────────┘
-                                    │ translates raw → canonical
-                                    ▼
-                          + fills gaps from Relay DB / seeds
-                          (HOS, broker, detention, parking POIs)
+    ┌────▼──────────┐       ┌─────▼─────────┐
+    │ MockTPAdapter │       │ NavProAdapter │
+    │ reads         │       │ httpx →       │
+    │ data/*.json   │       │ api.trucker   │
+    │ (canonical)   │       │ path.com/     │
+    │               │       │ navpro        │
+    └───────────────┘       └──────┬────────┘
+                                   │ translates raw → canonical
+                                   ▼
+                         + fills gaps from Relay DB / seeds
+                         (HOS, broker, detention, parking POIs)
 ```
 
 **Why hybrid.** NavPro v1.0 exposes a subset of what Relay needs. Several Relay-domain concepts — three-clock HOS, Trucker Path consumer parking data, `Broker` entity, detention config, F6b Proactive Check-In state — have no NavPro equivalent. In `RELAY_ADAPTER=navpro` mode the adapter pulls what NavPro can provide and falls back to Relay's own state for the rest.
@@ -292,9 +293,6 @@ RELAY_ADAPTER=mock
 
 # Production (Fly.io), credentials in place.
 RELAY_ADAPTER=navpro
-
-# Sanity-check against Samsara sandbox for Q&A.
-RELAY_ADAPTER=samsara
 ```
 
 `get_adapter()` is a one-line env read; no code in routes/services ever imports a concrete adapter class.

@@ -1,9 +1,8 @@
 """`NavProAdapter` ABC.
 
 The seam between Relay's canonical domain and one upstream fleet-data source.
-All concrete implementations (`MockTPAdapter`, `NavProHTTPAdapter`,
-`SamsaraAdapter`) satisfy this contract. Routes and services only ever depend
-on the ABC.
+All concrete implementations (`MockTPAdapter`, `NavProHTTPAdapter`) satisfy
+this contract. Routes and services only ever depend on the ABC.
 
 **Scope reconciliation (2026-04-19) against the real NavPro v1.0 API.**
 `API_DOCS/NavPro_integration.md` §9 documents gaps where NavPro does not
@@ -149,7 +148,7 @@ class NavProAdapter(ABC):
     @abstractmethod
     async def assign_trip(self, trip_id: UUID, driver_id: UUID) -> None:
         """No-op on NavPro v1.0 (assignment is part of create_trip). Kept on
-        the ABC for forward compatibility with NavPro v2 and `SamsaraAdapter`."""
+        the ABC for forward compatibility with NavPro v2."""
 
 
 __all__ = [

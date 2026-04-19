@@ -127,7 +127,7 @@ Source-of-truth priority list: `CLAUDE.md` §17.
 
 ### 5.3 Deferred (P2)
 
-Punjabi config, LLM outcome classification, WhatsApp summary, breadcrumbs + HOS parking coordinator, SamsaraAdapter, **inbound driver IVR + `driver_ivr_agent`** (F6).
+Punjabi config, LLM outcome classification, WhatsApp summary, breadcrumbs + HOS parking coordinator, **inbound driver IVR + `driver_ivr_agent`** (F6).
 
 ### 5.4 Anti-goals (do not build)
 
@@ -177,7 +177,7 @@ Only listing vars that cross the FE/BE boundary or that either side needs to kno
 | `ELEVENLABS_API_KEY`, `ELEVENLABS_SERVICE_TOKEN`, `ELEVENLABS_WEBHOOK_SECRET` | BE | |
 | `ELEVENLABS_AGENT_DETENTION_ID`, `ELEVENLABS_AGENT_DRIVER_ID`, `ELEVENLABS_AGENT_BROKER_UPDATE_ID` | BE | 3 agents per §4.2.1. `ELEVENLABS_AGENT_DRIVER_CHECKIN_ID` is the old name for `_DRIVER_ID` — rename in `.env`. `ELEVENLABS_AGENT_DRIVER_IVR_ID` commented out (deferred). |
 | `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER` | BE + FE | FE needs `PUSHER_KEY` + `PUSHER_CLUSTER` to subscribe |
-| `RELAY_ADAPTER` | BE | `navpro` (default) \| `mock` \| `samsara` |
+| `RELAY_ADAPTER` | BE | `navpro` (default) \| `mock` |
 | `DEMO_SAFE_MODE` | BE | `true` → synthesize flow on upstream failure |
 | `NEXT_PUBLIC_API_BASE_URL` | FE | points at Fly URL in prod |
 
