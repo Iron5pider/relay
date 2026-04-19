@@ -31,7 +31,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Awaitable, Callable, Optional
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.config import settings
+from backend.models.db import Driver as DBDriver, Load as DBLoad
 from backend.models.schemas import (
     CheckinTriggerReason,
     Driver,
@@ -40,7 +44,6 @@ from backend.models.schemas import (
 )
 
 from . import anomaly_agent, exceptions_engine, navpro_poller
-from .adapters import get_adapter
 from .anomaly_agent_schemas import (
     AnomalyDecision,
     CallSummary,
@@ -58,18 +61,63 @@ TriggerCheckin = Callable[
 ContextLoader = Callable[[UUID], Awaitable[DriverContext]]
 
 
-async def _default_context_loader(driver_id: UUID) -> DriverContext:
-    """Fallback context loader for local dev / tests when Relay DB isn't up.
+def _iso(dt: datetime | None) -> str | None:
+    if dt is None:
+        return None
+    return dt.isoformat().replace("+00:00", "Z")
 
-    Pulls the driver from the adapter's seed + synthesizes empty call
-    history. Production replacement lives in `routes/actions.py` (or a
-    `services/context.py` helper) once Block 2 lands.
-    """
-    adapter = get_adapter()
-    drivers = await adapter.list_drivers()
-    driver = next((d for d in drivers if d.id == driver_id), None)
-    if driver is None:
-        raise ValueError(f"driver {driver_id} not found in adapter")
+
+def _db_driver_to_schema(d: DBDriver) -> Driver:
+    """Convert a SQLAlchemy Driver row to the Pydantic Driver schema."""
+    return Driver(
+        id=d.id,
+        name=d.name,
+        phone=d.phone,
+        preferred_language=d.preferred_language,
+        truck_number=d.truck_number,
+        current_lat=d.current_lat,
+        current_lng=d.current_lng,
+        hos_drive_remaining_minutes=d.hos_drive_remaining_minutes,
+        hos_shift_remaining_minutes=d.hos_shift_remaining_minutes,
+        hos_cycle_remaining_minutes=d.hos_cycle_remaining_minutes,
+        hos_remaining_minutes=d.hos_remaining_minutes,
+        status=d.status,
+        fatigue_level=d.fatigue_level,
+        last_checkin_at=_iso(d.last_checkin_at),
+        next_scheduled_checkin_at=_iso(d.next_scheduled_checkin_at),
+        updated_at=_iso(d.updated_at) or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    )
+
+
+async def _get_db_session() -> AsyncSession:
+    """Get an async DB session outside of FastAPI request context."""
+    from backend.db import session as db_session
+
+    factory = db_session.AsyncSessionLocal
+    if factory is None:
+        db_session.get_engine()
+        factory = db_session.AsyncSessionLocal
+    assert factory is not None
+    return factory()
+
+
+async def _list_drivers_from_db() -> list[Driver]:
+    """Read all drivers from Supabase — replaces adapter.list_drivers()."""
+    session = await _get_db_session()
+    async with session:
+        result = await session.execute(select(DBDriver).order_by(DBDriver.name))
+        rows = list(result.scalars().all())
+        return [_db_driver_to_schema(r) for r in rows]
+
+
+async def _default_context_loader(driver_id: UUID) -> DriverContext:
+    """Context loader that reads from Supabase DB directly."""
+    session = await _get_db_session()
+    async with session:
+        row = await session.get(DBDriver, driver_id)
+        if row is None:
+            raise ValueError(f"driver {driver_id} not found in DB")
+        driver = _db_driver_to_schema(row)
 
     active_load = await _find_active_load(driver_id)
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -86,20 +134,64 @@ async def _default_context_loader(driver_id: UUID) -> DriverContext:
 
 
 async def _find_active_load(driver_id: UUID) -> Optional[Load]:
-    """Loads live in Relay DB in production; until then, scan the mock adapter."""
-    from .adapters.mock_tp import MockTPAdapter
+    """Query the active load for a driver from Supabase."""
+    from backend.models.db import Broker as DBBroker
 
-    adapter = get_adapter()
-    if not isinstance(adapter, MockTPAdapter):
-        return None
-    raw_loads = adapter._load("loads.json")  # type: ignore[attr-defined]
-    for raw in raw_loads:
-        if raw.get("driver", {}).get("id") == driver_id:
-            try:
-                return Load.model_validate(raw)
-            except Exception:
-                return None
-    return None
+    session = await _get_db_session()
+    async with session:
+        result = await session.execute(
+            select(DBLoad)
+            .where(
+                DBLoad.driver_id == driver_id,
+                DBLoad.status.in_(["in_transit", "at_pickup", "at_delivery", "exception"]),
+            )
+            .order_by(DBLoad.created_at.desc())
+        )
+        db_load = result.scalars().first()
+        if db_load is None:
+            return None
+
+        # Need driver + broker for the nested Pydantic Load schema.
+        db_driver = await session.get(DBDriver, db_load.driver_id)
+        db_broker = await session.get(DBBroker, db_load.broker_id)
+
+        from backend.models.schemas import BrokerLite, DriverLite, Stop
+
+        return Load(
+            id=db_load.id,
+            load_number=db_load.load_number,
+            driver=DriverLite(
+                id=db_driver.id if db_driver else driver_id,
+                name=db_driver.name if db_driver else "",
+                truck_number=db_driver.truck_number if db_driver else "",
+            ),
+            broker=BrokerLite(
+                id=db_broker.id if db_broker else db_load.broker_id,
+                name=db_broker.name if db_broker else "",
+            ),
+            pickup=Stop(
+                name=db_load.pickup_name,
+                lat=db_load.pickup_lat,
+                lng=db_load.pickup_lng,
+                phone=db_load.pickup_phone,
+                appointment=_iso(db_load.pickup_appointment) or "",
+            ),
+            delivery=Stop(
+                name=db_load.delivery_name,
+                lat=db_load.delivery_lat,
+                lng=db_load.delivery_lng,
+                phone=db_load.delivery_phone,
+                appointment=_iso(db_load.delivery_appointment) or "",
+            ),
+            rate_linehaul=float(db_load.rate_linehaul),
+            detention_rate_per_hour=float(db_load.detention_rate_per_hour),
+            detention_free_minutes=db_load.detention_free_minutes,
+            status=db_load.status,
+            arrived_at_stop_at=_iso(db_load.arrived_at_stop_at),
+            detention_minutes_elapsed=db_load.detention_minutes_elapsed,
+            exception_flags=db_load.exception_flags or [],
+            created_at=_iso(db_load.created_at) or "",
+        )
 
 
 async def _default_trigger(
@@ -209,8 +301,7 @@ async def run_forever(
 
     while True:
         try:
-            adapter = get_adapter()
-            drivers = await adapter.list_drivers()
+            drivers = await _list_drivers_from_db()
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "event=scheduler_list_drivers_failed err=%s",
