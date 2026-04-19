@@ -706,4 +706,193 @@ async def record_pod(
     )
 
 
+# ============================================================================
+# 5. Calls section (list + full detail)
+# ============================================================================
+
+
+def _extract_evaluation_criteria(analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    """Normalize `evaluation_criteria_results` into a stable list.
+
+    ElevenLabs emits this as a dict-of-dicts keyed by criteria_id. We flatten
+    into a sorted list with `failure` first so the dispatcher sees what went
+    wrong at the top of the tab.
+    """
+    raw = analysis.get("evaluation_criteria_results") or {}
+    if isinstance(raw, list):
+        rows = raw
+    else:
+        rows = [
+            {"criteria_id": key, **(val or {})}
+            for key, val in raw.items()
+            if isinstance(val, dict)
+        ]
+    rank = {"failure": 0, "unknown": 1, "success": 2}
+    rows.sort(key=lambda r: rank.get(str(r.get("result") or ""), 3))
+    return [
+        {
+            "criteria_id": r.get("criteria_id"),
+            "result": r.get("result"),
+            "rationale": r.get("rationale"),
+        }
+        for r in rows
+    ]
+
+
+def _extract_data_collection(analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    """Normalize `data_collection_results` into a list of fields."""
+    raw = analysis.get("data_collection_results") or {}
+    out: list[dict[str, Any]] = []
+    if isinstance(raw, list):
+        items = raw
+    else:
+        items = [
+            {"data_collection_id": key, **(val or {})}
+            for key, val in raw.items()
+            if isinstance(val, dict)
+        ]
+    # Surface the useful driver-flow fields first.
+    priority = {
+        "issues_flagged": 0,
+        "issue_type": 1,
+        "issue_description": 2,
+        "ready_status": 3,
+        "hos_remaining_min": 4,
+        "fuel_level_pct": 5,
+        "location_city": 6,
+        "new_eta_iso": 7,
+        "safety_status": 8,
+        "parking_accepted_suggestion": 9,
+        "parking_plan": 10,
+        "escalation_requested": 11,
+        "call_language": 12,
+        "repair_shop_selected": 13,
+    }
+    items.sort(key=lambda it: priority.get(str(it.get("data_collection_id")), 99))
+    for it in items:
+        schema = it.get("json_schema") or {}
+        out.append(
+            {
+                "data_collection_id": it.get("data_collection_id"),
+                "value": it.get("value"),
+                "rationale": it.get("rationale"),
+                "description": schema.get("description"),
+                "type": schema.get("type"),
+            }
+        )
+    return out
+
+
+def _transcript_turns(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    turns: list[dict[str, Any]] = []
+    for t in raw:
+        if not isinstance(t, dict):
+            continue
+        turns.append(
+            {
+                "role": t.get("role"),
+                "message": t.get("message"),
+                "time_in_call_secs": t.get("time_in_call_secs"),
+                "tool_calls": t.get("tool_calls") or [],
+                "interrupted": t.get("interrupted"),
+            }
+        )
+    return turns
+
+
+def _call_list_row(call: VoiceCall, analysis: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **_call_summary(call),
+        "termination_reason": call.termination_reason,
+        "call_summary_title": analysis.get("call_summary_title"),
+        "transcript_summary": analysis.get("transcript_summary"),
+        "has_audio": analysis.get("has_audio"),
+        "cost": analysis.get("cost"),
+    }
+
+
+@router.get("/calls")
+async def list_calls(
+    agent_id: str | None = None,
+    purpose: str | None = None,
+    outcome: str | None = None,
+    call_status: str | None = None,
+    driver_id: str | None = None,
+    load_id: str | None = None,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(VoiceCall).order_by(VoiceCall.started_at.desc()).limit(max(1, min(limit, 200)))
+    if agent_id:
+        q = q.where(VoiceCall.agent_id == agent_id)
+    if purpose:
+        q = q.where(VoiceCall.purpose == purpose)
+    if outcome:
+        q = q.where(VoiceCall.outcome == outcome)
+    if call_status:
+        q = q.where(VoiceCall.call_status == call_status)
+    if driver_id:
+        q = q.where(VoiceCall.driver_id == driver_id)
+    if load_id:
+        q = q.where(VoiceCall.load_id == load_id)
+
+    result = await db.execute(q)
+    calls = list(result.scalars().all())
+    rows = [_call_list_row(c, c.analysis_json or {}) for c in calls]
+    return ok({"count": len(rows), "calls": rows})
+
+
+@router.get("/calls/{call_id}")
+async def call_detail(call_id: str, db: AsyncSession = Depends(get_db)):
+    """Accepts either voice_calls.id or voice_calls.conversation_id."""
+    call = await db.get(VoiceCall, call_id)
+    if call is None:
+        cq = await db.execute(
+            select(VoiceCall).where(VoiceCall.conversation_id == call_id)
+        )
+        call = cq.scalars().first()
+    if call is None:
+        raise EnvelopeError(
+            "call_not_found", "No call found for that ID.", http_status=404
+        )
+
+    analysis = call.analysis_json or {}
+    driver = await db.get(Driver, call.driver_id) if call.driver_id else None
+    load = await db.get(Load, call.load_id) if call.load_id else None
+    broker = await db.get(Broker, load.broker_id) if (load and load.broker_id) else None
+    phone_call = analysis.get("phone_call") or {}
+
+    return ok(
+        {
+            **_call_summary(call),
+            "termination_reason": call.termination_reason,
+            "trigger_reasoning": call.trigger_reasoning,
+            "audio_url": call.audio_url,
+            "call_summary_title": analysis.get("call_summary_title"),
+            "transcript_summary": analysis.get("transcript_summary"),
+            "call_successful": analysis.get("call_successful"),
+            "has_audio": analysis.get("has_audio"),
+            "cost": analysis.get("cost"),
+            "phone_call": {
+                "type": phone_call.get("type"),
+                "direction": phone_call.get("direction") or call.direction,
+                "from_number": phone_call.get("from_number") or call.from_number,
+                "to_number": phone_call.get("to_number") or call.to_number,
+                "phone_number_id": phone_call.get("phone_number_id"),
+                "call_sid": phone_call.get("call_sid") or call.twilio_call_sid,
+                "agent_number": phone_call.get("agent_number"),
+                "external_number": phone_call.get("external_number"),
+            },
+            "transcript": _transcript_turns(call.transcript),
+            "evaluation_criteria_results": _extract_evaluation_criteria(analysis),
+            "data_collection_results": _extract_data_collection(analysis),
+            "driver": _driver_lite(driver),
+            "load": _load_snapshot(load, broker) if load else None,
+            "broker": _broker_lite(broker),
+        }
+    )
+
+
 __all__ = ["router"]
