@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Phone, Headset, Radio, FileText, MapPin, Clock } from "lucide-react";
+import { Phone, Headset, Radio, FileText, MapPin, Clock, CheckCircle, Receipt, Truck, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { ActiveLoad, DriverRow } from "@/lib/api";
@@ -189,9 +189,108 @@ export default function LoadDetailPanel({ driver, load }: Props) {
             <div className="mt-1 font-medium text-ink-900">{load.broker.name}</div>
           </div>
         )}
+
+        {/* Delivered summary */}
+        {load.status === "delivered" && (
+          <>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                <CheckCircle className="h-3 w-3" />
+                Delivered
+              </div>
+              {load.pod?.signed_by && (
+                <div className="mt-2 text-[12px] text-ink-700">
+                  <span className="text-ink-400">Signed by:</span>{" "}
+                  <span className="font-medium">{load.pod.signed_by}</span>
+                </div>
+              )}
+              {load.pod?.received_at && (
+                <div className="mt-0.5 text-[11px] text-ink-400 font-mono">
+                  {new Date(load.pod.received_at).toLocaleString()}
+                </div>
+              )}
+            </div>
+
+            {/* Financial summary */}
+            <div className="rounded-lg border border-ink-100 bg-white p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-400 mb-2">
+                Financial summary
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[12px]">
+                  <span className="text-ink-500 flex items-center gap-1.5">
+                    <Truck className="h-3 w-3" /> Linehaul
+                  </span>
+                  <span className="font-mono font-medium text-ink-900 tabular-nums">
+                    {formatMoney(load.rate_linehaul ?? 0)}
+                  </span>
+                </div>
+                {load.detention_minutes_elapsed > load.detention_free_minutes && (
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="text-red-600 flex items-center gap-1.5">
+                      <Clock className="h-3 w-3" /> Detention
+                    </span>
+                    <span className="font-mono font-semibold text-red-600 tabular-nums">
+                      {formatMoney(amount)}
+                    </span>
+                  </div>
+                )}
+                <div className="border-t border-ink-100 pt-1.5 flex items-center justify-between text-[13px]">
+                  <span className="text-ink-700 font-semibold flex items-center gap-1.5">
+                    <DollarSign className="h-3.5 w-3.5" /> Total
+                  </span>
+                  <span className="font-mono font-bold text-ink-900 tabular-nums">
+                    {formatMoney((load.rate_linehaul ?? 0) + (load.detention_minutes_elapsed > load.detention_free_minutes ? amount : 0))}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Invoice link */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setPanelView("invoice")}
+              onKeyDown={(e) => { if (e.key === "Enter") setPanelView("invoice"); }}
+              className="rounded-lg border border-ink-200 bg-white p-3 flex items-center justify-between hover:bg-ink-50 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-ink-400" />
+                <div>
+                  <div className="text-[12px] font-medium text-ink-900">View Invoice</div>
+                  <div className="text-[10px] text-ink-400 font-mono">
+                    {load.detention_minutes_elapsed > load.detention_free_minutes
+                      ? `Detention invoice — ${formatMoney(amount)}`
+                      : "Standard invoice"}
+                  </div>
+                </div>
+              </div>
+              <FileText className="h-4 w-4 text-ink-300" />
+            </div>
+
+            {/* POD document */}
+            {load.pod?.url && (
+              <a
+                href={load.pod.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-ink-200 bg-white p-3 flex items-center gap-2 hover:bg-ink-50 transition-colors"
+              >
+                <FileText className="h-4 w-4 text-emerald-500" />
+                <div>
+                  <div className="text-[12px] font-medium text-ink-900">Proof of Delivery</div>
+                  <div className="text-[10px] text-ink-400 font-mono">
+                    Signed by {load.pod.signed_by ?? "—"}
+                  </div>
+                </div>
+              </a>
+            )}
+          </>
+        )}
       </div>
 
-      {/* Actions — sticky bottom */}
+      {/* Actions — sticky bottom (hide for delivered loads) */}
+      {load.status !== "delivered" && (
       <div className="sticky bottom-0 mt-auto space-y-2 border-t border-ink-100 bg-white px-4 py-3">
         <button
           onClick={() =>
@@ -239,6 +338,7 @@ export default function LoadDetailPanel({ driver, load }: Props) {
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }
