@@ -47,6 +47,7 @@ async def resolve_inbound_caller(
                 "current_lat": None,
                 "current_lng": None,
                 "last_gps_city": None,
+                "dispatcher_number": called_number or settings.twilio_from_number or "",
                 "secret__relay_token": settings.relay_internal_token,
                 "voice_call_id": str(uuid.uuid4()),
             },
@@ -75,6 +76,7 @@ async def resolve_inbound_caller(
         "current_lat": driver.current_lat,
         "current_lng": driver.current_lng,
         "last_gps_city": None,  # Block 2 adds reverse geocoding
+        "dispatcher_number": called_number or settings.twilio_from_number or "",
         "secret__relay_token": settings.relay_internal_token,
         "voice_call_id": str(uuid.uuid4()),
     }
