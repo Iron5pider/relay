@@ -1,0 +1,42 @@
+[
+  {
+    "id": "br1a2b3c-0000-0000-0000-000000000010",
+    "name": "Acme Logistics",
+    "contact_name": "Jamie Park",
+    "phone": "+12135550010",
+    "email": "ops@acmelogistics.example",
+    "preferred_update_channel": "call"
+  },
+  {
+    "id": "br1a2b3c-0000-0000-0000-000000000011",
+    "name": "TQL",
+    "contact_name": "Marcus Webb",
+    "phone": "+15135550011",
+    "email": "dispatch+tql@example.com",
+    "preferred_update_channel": "call"
+  },
+  {
+    "id": "br1a2b3c-0000-0000-0000-000000000012",
+    "name": "Coyote Logistics",
+    "contact_name": "Elena Vasquez",
+    "phone": "+13125550012",
+    "email": "updates@coyote.example",
+    "preferred_update_channel": "sms"
+  },
+  {
+    "id": "br1a2b3c-0000-0000-0000-000000000013",
+    "name": "RXO",
+    "contact_name": "David Huang",
+    "phone": "+19805550013",
+    "email": "carrier.ops@rxo.example",
+    "preferred_update_channel": "email"
+  },
+  {
+    "id": "br1a2b3c-0000-0000-0000-000000000014",
+    "name": "Arrive Logistics",
+    "contact_name": "Priya Patel",
+    "phone": "+15125550014",
+    "email": "track@arrive.example",
+    "preferred_update_channel": "call"
+  }
+]

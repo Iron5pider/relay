@@ -1,0 +1,290 @@
+[
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f7123",
+    "load_number": "L-12345",
+    "driver": {
+      "id": "d1a2b3c4-0000-0000-0000-000000000001",
+      "name": "Carlos Ramirez",
+      "truck_number": "28"
+    },
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000010",
+      "name": "Acme Logistics"
+    },
+    "pickup": {
+      "name": "Phoenix DC",
+      "lat": 33.45,
+      "lng": -112.07,
+      "phone": "+16025550100",
+      "appointment": "2026-04-18T06:00:00Z"
+    },
+    "delivery": {
+      "name": "Receiver XYZ",
+      "lat": 34.05,
+      "lng": -118.24,
+      "phone": "+13105551234",
+      "appointment": "2026-04-18T14:00:00Z"
+    },
+    "rate_linehaul": 2150.00,
+    "detention_rate_per_hour": 75.00,
+    "detention_free_minutes": 120,
+    "status": "exception",
+    "arrived_at_stop_at": "2026-04-18T14:00:00Z",
+    "detention_minutes_elapsed": 167,
+    "exception_flags": ["detention_threshold_breached"],
+    "created_at": "2026-04-17T20:12:00Z",
+    "_demo_notes": "HERO detention call target. One click from the dashboard on this row fires POST /actions/escalate-detention."
+  },
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f7124",
+    "load_number": "L-12346",
+    "driver": {
+      "id": "d1a2b3c4-0000-0000-0000-000000000002",
+      "name": "John Okafor",
+      "truck_number": "14"
+    },
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000011",
+      "name": "TQL"
+    },
+    "pickup": {
+      "name": "Phoenix DC",
+      "lat": 33.45,
+      "lng": -112.07,
+      "phone": "+16025550100",
+      "appointment": "2026-04-18T05:30:00Z"
+    },
+    "delivery": {
+      "name": "Denver Distribution",
+      "lat": 39.7392,
+      "lng": -104.9903,
+      "phone": "+17205552001",
+      "appointment": "2026-04-19T08:00:00Z"
+    },
+    "rate_linehaul": 2650.00,
+    "detention_rate_per_hour": 65.00,
+    "detention_free_minutes": 120,
+    "status": "in_transit",
+    "arrived_at_stop_at": null,
+    "detention_minutes_elapsed": 0,
+    "exception_flags": ["late_eta"],
+    "created_at": "2026-04-17T18:04:00Z",
+    "_demo_notes": "Weather delay on I-40, projected ETA drifting ~45 min. Broker batch check-call target — agent calls TQL with the drift."
+  },
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f7125",
+    "load_number": "L-12347",
+    "driver": {
+      "id": "d1a2b3c4-0000-0000-0000-000000000004",
+      "name": "Miguel Rodriguez",
+      "truck_number": "22"
+    },
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000012",
+      "name": "Coyote Logistics"
+    },
+    "pickup": {
+      "name": "Tucson Yard",
+      "lat": 32.2226,
+      "lng": -110.9747,
+      "phone": "+15205550500",
+      "appointment": "2026-04-18T08:00:00Z"
+    },
+    "delivery": {
+      "name": "Las Vegas DC",
+      "lat": 36.1699,
+      "lng": -115.1398,
+      "phone": "+17025553300",
+      "appointment": "2026-04-18T20:00:00Z"
+    },
+    "rate_linehaul": 1425.00,
+    "detention_rate_per_hour": 75.00,
+    "detention_free_minutes": 120,
+    "status": "in_transit",
+    "arrived_at_stop_at": null,
+    "detention_minutes_elapsed": 0,
+    "exception_flags": ["hos_warning"],
+    "created_at": "2026-04-17T22:45:00Z",
+    "_demo_notes": "HERO Proactive Check-In target. Miguel's drive-clock is 25 min from capping with 120+ mi left to deliver. Agent calls in Spanish, checks fatigue, offers Pilot Needles parking via lookup_parking, logs structured result."
+  },
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f7126",
+    "load_number": "L-12348",
+    "driver": {
+      "id": "d1a2b3c4-0000-0000-0000-000000000005",
+      "name": "Raj Singh",
+      "truck_number": "33"
+    },
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000013",
+      "name": "RXO"
+    },
+    "pickup": {
+      "name": "San Diego Port",
+      "lat": 32.7157,
+      "lng": -117.1611,
+      "phone": "+16195554400",
+      "appointment": "2026-04-18T10:00:00Z"
+    },
+    "delivery": {
+      "name": "Phoenix DC East",
+      "lat": 33.45,
+      "lng": -111.90,
+      "phone": "+16025550200",
+      "appointment": "2026-04-18T21:00:00Z"
+    },
+    "rate_linehaul": 1180.00,
+    "detention_rate_per_hour": 60.00,
+    "detention_free_minutes": 120,
+    "status": "in_transit",
+    "arrived_at_stop_at": null,
+    "detention_minutes_elapsed": 0,
+    "exception_flags": [],
+    "created_at": "2026-04-17T23:10:00Z",
+    "_demo_notes": "On-time, no exception. Use for Punjabi IVR demo (inbound driver call) if time permits."
+  },
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f7127",
+    "load_number": "L-12349",
+    "driver": {
+      "id": "d1a2b3c4-0000-0000-0000-000000000006",
+      "name": "Tommy Walsh",
+      "truck_number": "41"
+    },
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000014",
+      "name": "Arrive Logistics"
+    },
+    "pickup": {
+      "name": "Phoenix DC",
+      "lat": 33.45,
+      "lng": -112.07,
+      "phone": "+16025550100",
+      "appointment": "2026-04-18T13:00:00Z"
+    },
+    "delivery": {
+      "name": "Albuquerque Yard",
+      "lat": 35.0844,
+      "lng": -106.6504,
+      "phone": "+15055555500",
+      "appointment": "2026-04-19T02:00:00Z"
+    },
+    "rate_linehaul": 1340.00,
+    "detention_rate_per_hour": 70.00,
+    "detention_free_minutes": 120,
+    "status": "exception",
+    "arrived_at_stop_at": "2026-04-18T12:45:00Z",
+    "detention_minutes_elapsed": 240,
+    "exception_flags": ["detention_threshold_breached"],
+    "created_at": "2026-04-18T09:30:00Z",
+    "_demo_notes": "Shipper-side detention at Phoenix DC. Secondary detention demo option if Carlos's flow has network trouble. Also target for broker batch check-call. status=exception so the escalate-detention endpoint accepts it (same gate as the hero)."
+  },
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f7128",
+    "load_number": "L-12350",
+    "driver": {
+      "id": "d1a2b3c4-0000-0000-0000-000000000003",
+      "name": "Sarah Chen",
+      "truck_number": "09"
+    },
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000010",
+      "name": "Acme Logistics"
+    },
+    "pickup": {
+      "name": "Flagstaff Yard",
+      "lat": 35.1983,
+      "lng": -111.6513,
+      "phone": "+19285556600",
+      "appointment": "2026-04-17T09:00:00Z"
+    },
+    "delivery": {
+      "name": "Phoenix DC",
+      "lat": 33.45,
+      "lng": -112.07,
+      "phone": "+16025550100",
+      "appointment": "2026-04-17T16:00:00Z"
+    },
+    "rate_linehaul": 780.00,
+    "detention_rate_per_hour": 60.00,
+    "detention_free_minutes": 120,
+    "status": "delivered",
+    "arrived_at_stop_at": "2026-04-17T15:40:00Z",
+    "detention_minutes_elapsed": 0,
+    "exception_flags": [],
+    "created_at": "2026-04-17T06:00:00Z",
+    "_demo_notes": "Historical. Provides fleet-view realism: not every row is on fire."
+  },
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f7129",
+    "load_number": "L-12351",
+    "driver": {
+      "id": "d1a2b3c4-0000-0000-0000-000000000001",
+      "name": "Carlos Ramirez",
+      "truck_number": "28"
+    },
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000011",
+      "name": "TQL"
+    },
+    "pickup": {
+      "name": "Phoenix DC",
+      "lat": 33.45,
+      "lng": -112.07,
+      "phone": "+16025550100",
+      "appointment": "2026-04-19T07:00:00Z"
+    },
+    "delivery": {
+      "name": "Salt Lake City Yard",
+      "lat": 40.7608,
+      "lng": -111.8910,
+      "phone": "+18015557700",
+      "appointment": "2026-04-20T10:00:00Z"
+    },
+    "rate_linehaul": 2900.00,
+    "detention_rate_per_hour": 75.00,
+    "detention_free_minutes": 120,
+    "status": "planned",
+    "arrived_at_stop_at": null,
+    "detention_minutes_elapsed": 0,
+    "exception_flags": [],
+    "created_at": "2026-04-18T10:00:00Z",
+    "_demo_notes": "Carlos's next load after he clears Receiver XYZ. Adds a planned row so the dashboard feels like a real queue."
+  },
+  {
+    "id": "b17e9c2d-4a5f-4e88-9c12-a6bd2e4f712a",
+    "load_number": "L-12352",
+    "driver": {
+      "id": "d1a2b3c4-0000-0000-0000-000000000002",
+      "name": "John Okafor",
+      "truck_number": "14"
+    },
+    "broker": {
+      "id": "br1a2b3c-0000-0000-0000-000000000014",
+      "name": "Arrive Logistics"
+    },
+    "pickup": {
+      "name": "Denver Distribution",
+      "lat": 39.7392,
+      "lng": -104.9903,
+      "phone": "+17205552001",
+      "appointment": "2026-04-19T14:00:00Z"
+    },
+    "delivery": {
+      "name": "Oklahoma City DC",
+      "lat": 35.4676,
+      "lng": -97.5164,
+      "phone": "+14055558800",
+      "appointment": "2026-04-20T09:00:00Z"
+    },
+    "rate_linehaul": 1820.00,
+    "detention_rate_per_hour": 65.00,
+    "detention_free_minutes": 120,
+    "status": "planned",
+    "arrived_at_stop_at": null,
+    "detention_minutes_elapsed": 0,
+    "exception_flags": [],
+    "created_at": "2026-04-18T11:30:00Z",
+    "_demo_notes": "John's return load from Denver. Planned — no demo action."
+  }
+]

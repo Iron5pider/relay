@@ -9,3 +9,33 @@ __pycache__/
 .DS_Store
 *.log
 .vercel
+
+relay-credentials.json
+
+# FastAPI
+instance/
+*.sqlite3
+
+# Uvicorn logs
+*.pid
+*.db
+
+# VS Code
+.vscode/
+
+# pytest
+.cache
+
+# Coverage reports
+htmlcov/
+coverage.xml
+.tox/
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+# Pyre type checker
+.pyre/
+
+

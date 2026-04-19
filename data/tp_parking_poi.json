@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Pilot Travel Center #243 — Needles",
+    "lat": 34.8481,
+    "lng": -114.6144,
+    "available_spots": 18,
+    "distance_miles": 12.3,
+    "exit": "I-40 Exit 141",
+    "_demo_notes": "Hero parking target for Miguel's hos_near_cap call. Agent offers this via lookup_parking during the Proactive Check-In."
+  },
+  {
+    "name": "Love's Travel Stop — Kingman",
+    "lat": 35.1894,
+    "lng": -114.0530,
+    "available_spots": 9,
+    "distance_miles": 52.4,
+    "exit": "I-40 Exit 48",
+    "_demo_notes": "Secondary option for Miguel if Needles is staged as full. Out of HOS range so agent would recommend Needles over this one."
+  },
+  {
+    "name": "Flying J Travel Plaza — Kingman East",
+    "lat": 35.2009,
+    "lng": -113.9874,
+    "available_spots": 22,
+    "distance_miles": 56.1,
+    "exit": "I-40 Exit 53",
+    "_demo_notes": "Third option; not used in hero scenario but realistic data for Kingman corridor."
+  },
+  {
+    "name": "TA Travel Center — Flagstaff",
+    "lat": 35.2210,
+    "lng": -111.5819,
+    "available_spots": 31,
+    "distance_miles": 8.1,
+    "exit": "I-40 Exit 201",
+    "_demo_notes": "Near Sarah's rest location — realism."
+  },
+  {
+    "name": "Love's Travel Stop — Barstow",
+    "lat": 34.8894,
+    "lng": -117.0228,
+    "available_spots": 12,
+    "distance_miles": 8.3,
+    "exit": "I-15 Exit 181",
+    "_demo_notes": "Classic corridor parking. Used by the broker check-call agent if it needs to reference mid-route stops."
+  },
+  {
+    "name": "Pilot Travel Center — Phoenix West",
+    "lat": 33.4484,
+    "lng": -112.2740,
+    "available_spots": 26,
+    "distance_miles": 14.2,
+    "exit": "I-10 Exit 128",
+    "_demo_notes": "Near Phoenix DC cluster."
+  },
+  {
+    "name": "TA Travel Center — Tucson",
+    "lat": 32.1745,
+    "lng": -110.9413,
+    "available_spots": 19,
+    "distance_miles": 6.8,
+    "exit": "I-10 Exit 268",
+    "_demo_notes": "Near Tucson Yard pickup."
+  },
+  {
+    "name": "Love's Travel Stop — Gallup",
+    "lat": 35.5281,
+    "lng": -108.7426,
+    "available_spots": 14,
+    "distance_miles": 2.1,
+    "exit": "I-40 Exit 20",
+    "_demo_notes": "New Mexico corridor — used for John Okafor's eastbound route."
+  }
+]
