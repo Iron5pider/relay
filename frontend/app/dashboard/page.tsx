@@ -95,7 +95,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-white">
+    <>
       <div className="relative z-30">
         <DashboardHeader
           onOpenDemoControls={() => setDemoOpen(true)}
@@ -126,6 +126,6 @@ export default function DashboardPage() {
       </div>
       <DemoControls open={demoOpen} onOpenChange={setDemoOpen} />
       <AssignLoadsModal open={assignOpen} onOpenChange={setAssignOpen} />
-    </div>
+    </>
   );
 }
