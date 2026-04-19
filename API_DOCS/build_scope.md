@@ -74,6 +74,18 @@ Canonical shapes live on the Notion **API Models** page (§4 endpoints, §6 agen
 
 Naming footgun: `driver_checkin` (inbound IVR) ≠ `driver_proactive_checkin` (outbound F6b). Do not collapse.
 
+### 4.2.1 ElevenLabs agent roster (3 agents, all outbound)
+
+| Agent | Env var | Purpose | Attached tools |
+|---|---|---|---|
+| `detention_agent` | `ELEVENLABS_AGENT_DETENTION_ID` | Receiver detention escalation (Beat 2, Feature 3) | `get_load_details`, `compute_detention_charge`, `log_conversation_outcome` |
+| `driver_agent` | `ELEVENLABS_AGENT_DRIVER_ID` | Proactive driver check-in (Beat 1, Features 1 + 2). Renamed from `driver_checkin_agent`. | `get_driver_status`, `check_hos`, `lookup_parking`, `record_proactive_checkin`, `log_conversation_outcome` |
+| `broker_update_agent` | `ELEVENLABS_AGENT_BROKER_UPDATE_ID` | Broker status calls (Feature 5); powers `/api/v1/actions/batch-broker-updates/` | `get_load_details`, `get_driver_status`, `log_conversation_outcome` |
+
+**Deferred:** `driver_ivr_agent` (inbound IVR / Feature 6) — config and `record_driver_checkin` tool stay documented but are not provisioned, not attached to a phone number, and do not fire during the demo.
+
+Full agent configs (voice preset, prompts, Security-tab toggles, Data Collection, Evaluation Criteria) in `API_DOCS/ElevenLabs_Twilio_integration.md` §5.
+
 ### 4.3 Webhooks
 
 | Endpoint | Auth | Notes |
@@ -106,16 +118,16 @@ Source-of-truth priority list: `CLAUDE.md` §17.
 - `scripts/rehearse_hero.py` green
 - `demo_safe_mode` fallback
 - **F6b Proactive Check-In** (scheduler + event triggers + `record_proactive_checkin` + post-call writeback)
+- **Claude anomaly agent + NavPro poller** (Sonnet 4.6 reasoning layer at the Relay ↔ NavPro seam; `backend/services/{anomaly_agent,navpro_poller,checkin_scheduler,exceptions_engine}.py`). Hard rules fire deterministically; soft signals (silence + tracking staleness + multi-signal borderlines) flow to Claude. Powers Feature 2 of the Build Scope — see `API_DOCS/Backend_phase_guide.md` Block 4 "Dev A — Anomaly Detection."
 
 ### 5.2 Stretch (P1 — add if core is solid)
 
-- Batch broker updates with fan-out visual
-- Driver inbound IVR + personalization webhook + bilingual first_message
+- Batch broker updates with fan-out visual (agent config is P0 as of 2026-04-18 rename — `broker_update_agent` is provisioned; the **dashboard fan-out visual** is P1)
 - `check_hos` + `lookup_parking`
 
 ### 5.3 Deferred (P2)
 
-Punjabi config, LLM outcome classification, WhatsApp summary, breadcrumbs + HOS parking coordinator, SamsaraAdapter.
+Punjabi config, LLM outcome classification, WhatsApp summary, breadcrumbs + HOS parking coordinator, SamsaraAdapter, **inbound driver IVR + `driver_ivr_agent`** (F6).
 
 ### 5.4 Anti-goals (do not build)
 
@@ -134,6 +146,8 @@ Multi-tenant, rate-con parsing, auth/user accounts, SIP/VoIP, production observa
 - Seed records carry `_demo_notes` (not in schema). Pydantic sets `model_config = ConfigDict(extra="ignore")`.
 
 F6b additions (2026-04-19): `FatigueLevel`, `EtaConfidence`, `CheckinTriggerReason` enums; `CallPurpose.driver_proactive_checkin`; `Driver.fatigue_level`, `Driver.last_checkin_at`, `Driver.next_scheduled_checkin_at`.
+
+Anomaly-agent additions (2026-04-19): `CheckinTriggerReason.missed_checkin` (Build Scope Feature 2) + `CheckinTriggerReason.tracking_stale` (NavPro freshness signal); `Call.trigger_reasoning: Optional[str]` (Claude's plain-English rationale, surfaced verbatim in dashboard tooltip). Same-PR update: API Models §2 + §3.
 
 ---
 
@@ -160,7 +174,8 @@ Only listing vars that cross the FE/BE boundary or that either side needs to kno
 |---|---|---|
 | `DATABASE_URL` | BE | Neon Postgres |
 | `TWILIO_*` | BE | auth token used for HMAC |
-| `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_*_ID`, `ELEVENLABS_SERVICE_TOKEN`, `ELEVENLABS_WEBHOOK_SECRET` | BE | |
+| `ELEVENLABS_API_KEY`, `ELEVENLABS_SERVICE_TOKEN`, `ELEVENLABS_WEBHOOK_SECRET` | BE | |
+| `ELEVENLABS_AGENT_DETENTION_ID`, `ELEVENLABS_AGENT_DRIVER_ID`, `ELEVENLABS_AGENT_BROKER_UPDATE_ID` | BE | 3 agents per §4.2.1. `ELEVENLABS_AGENT_DRIVER_CHECKIN_ID` is the old name for `_DRIVER_ID` — rename in `.env`. `ELEVENLABS_AGENT_DRIVER_IVR_ID` commented out (deferred). |
 | `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER` | BE + FE | FE needs `PUSHER_KEY` + `PUSHER_CLUSTER` to subscribe |
 | `RELAY_ADAPTER` | BE | `navpro` (default) \| `mock` \| `samsara` |
 | `DEMO_SAFE_MODE` | BE | `true` → synthesize flow on upstream failure |

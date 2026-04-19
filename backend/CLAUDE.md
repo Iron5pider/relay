@@ -647,11 +647,17 @@ def get_adapter() -> NavProAdapter:
             "samsara": SamsaraAdapter}[impl]()
 ```
 
-**`MockTPAdapter` is the demo backend.** It reads from `data/*.json` + an in-memory tick stream driven by `scripts/trigger_tick.py`. It produces realistic geofence entry events on a timer so detention can fire "live" on stage.
+**`NavProAdapter` is the production default** (per 2026-04-18 changelog). Live HTTP client against `https://api.truckerpath.com/navpro`, auth via `Authorization: Bearer <jwt_token>` loaded from `relay-credentials.json`. Endpoint surface + translation tables + **the known gaps** (HOS, parking moat, messaging, webhooks, broker, detention — concepts Relay needs that NavPro v1.0 doesn't expose) live in **`API_DOCS/NavPro_integration.md`**. Read that before writing `services/adapters/navpro.py`.
 
-**`NavProAdapter` (prod)** is allowed to be a stub for the hackathon — a class with each method raising `NotImplementedError("pending partner credentials")`. Demo talking track (memorize): *"The `NavProAdapter` interface is modeled on Trucker Path's documented partner contract. For the hackathon we run it against a mock service seeded with a realistic Tuesday. Flipping to the real NavPro impl is a 30-minute change once credentials arrive — the adapter boundary is exactly that thin."*
+**`MockTPAdapter` is the fresh-checkout + Wi-Fi-fallback mode.** `.env.example` ships `RELAY_ADAPTER=mock` so a teammate cloning the repo gets a working frontend demo with zero external creds. Reads `data/*.json` + in-memory tick stream from `scripts/trigger_tick.py`. Flip to `RELAY_ADAPTER=navpro` when credentials are in place.
 
-**`SamsaraAdapter`** is optional, but nice to have for Q&A: judges love seeing a real external API call work. Use the public sandbox at `developers.samsara.com`. The compatibility map is in API Models §4.3.
+**Hybrid mode.** Even when `RELAY_ADAPTER=navpro`, several Relay-domain fields stay seed-/DB-sourced because NavPro doesn't expose them: three-clock HOS, Trucker Path consumer parking POIs, `Broker` entity, detention config (`rate_per_hour`, `free_minutes`, `minutes_elapsed`), and the F6b Proactive Check-In state. NavPro contributes driver identity + GPS trail (via tracking endpoint) + trip dispatch + vehicle assignments + custom POIs + documents. Field-provenance table in `NavPro_integration.md` §1.
+
+**Polling, not webhooks.** NavPro v1.0 has **no push webhook channel**. `exceptions_engine` polls `POST /api/tracking/get/driver-dispatch` on a timer (30-sec for hero-load drivers, 1-min otherwise — well under the 25 QPS cap). The `/api/v1/webhooks/navpro/events/` receiver path is **reserved** for future use; don't wire a live handler yet.
+
+**Demo talking track (memorize):** *"We're live against the NavPro partner API. The adapter interface is the seam — one env var flip to `mock` if venue Wi-Fi fails. Fields NavPro doesn't expose yet — HOS, detention config, broker relationships — live in Relay's own state. Same pattern would work against Samsara's sandbox."*
+
+**`SamsaraAdapter`** is optional Q&A sanity check: public sandbox at `developers.samsara.com`. Compatibility map in API Models §4.3.
 
 ---
 

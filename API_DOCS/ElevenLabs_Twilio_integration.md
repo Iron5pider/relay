@@ -4,11 +4,12 @@
 >
 > **Precedence:** Notion **API Models** (canonical contracts, §4.1 webhooks + §6 tool schemas + §6.5 Data Collection + §9 Adapter) · Notion **Build Scope** (3 P0 features; F5 broker batch and F6 inbound IVR deferred) · `backend/models/CLAUDE.md` §5.3 + §5.4 + §6 · this doc. On conflict, the Notion pages win.
 >
-> **Scope note (2026-04-19 Build Scope lock).** Only **two outbound agents** actually ship in the demo:
-> 1. **`driver_checkin_agent`** (outbound) — powers Beat 1 (Feature 1 Dispatch Check-In + Feature 2 Anomaly Detection).
-> 2. **`detention_agent`** (outbound) — powers Beat 2 (Feature 3 Auto-Invoice via Escalation Call).
+> **Scope note (2026-04-18 rename).** The ElevenLabs surface is **three agents** total, all outbound:
+> 1. **`detention_agent`** — receiver detention escalation (Beat 2, Feature 3).
+> 2. **`driver_agent`** — outbound proactive driver check-in (Beat 1, Features 1 + 2). Renamed from `driver_checkin_agent`.
+> 3. **`broker_update_agent`** — outbound broker status calls (powers `/api/v1/actions/batch-broker-updates/`). Active/provisioned even if the dashboard doesn't click it during the scripted demo; judges may ask to see it.
 >
-> The `broker_update_agent` config and the `driver_ivr_agent` inbound pipeline are kept in the documentation and the `.env.example` for post-hackathon resume; they are not provisioned, not attached to live phone numbers, and not tested. Implementations that do touch them should land behind feature flags, not in the demo path.
+> `driver_ivr_agent` (inbound IVR) remains **deferred** per the 2026-04-19 Build Scope narrowing. Config is kept in documentation for post-hackathon resume; it is not provisioned, not attached to a live phone number, and not tested.
 
 ---
 
@@ -30,9 +31,10 @@
       │                              │ tool call (HTTP)                ┌────────────────────────┐
       │                              │◀─────────────────────────────── │  ElevenLabs ConvAI 2.0 │
       │                              │                                  │  Flash v2.5            │
-      │                              │ personalization webhook (pre-call) │  2 agents (demo):     │
-      │                              │ transcript webhook (during call)  │   · detention         │
-      │                              │ post-call webhook (after call)    │   · driver_checkin    │
+      │                              │ personalization webhook (pre-call) │  3 agents (demo):     │
+      │                              │ transcript webhook (during call)  │   · detention_agent   │
+      │                              │ post-call webhook (after call)    │   · driver_agent      │
+      │                              │                                  │   · broker_update_agent│
       │                              │                                  └────────────────────────┘
       │                              ▼
       │                   Pusher HTTP publish (after DB commit)
@@ -61,16 +63,16 @@
 
 **ElevenLabs.**
 - Creator-tier or higher (ConvAI 2.0 requires it).
-- **Three agents created** on the ElevenLabs dashboard → Conversational AI:
-  1. `detention_agent` — outbound, Maya voice, Flash v2.5.
-  2. `driver_checkin_agent` — outbound, Maya voice, Flash v2.5. One agent serves both the scheduled routine check-ins AND the anomaly-urgent variant — prompt templates on `trigger_reason`.
-  3. `driver_ivr_agent` — **not attached to a phone number in the demo**, but the config exists. Kept for Q&A and post-hackathon resume.
-- **`broker_update_agent`** — deferred. Do not create. If someone created it earlier in the week, leave it in a disabled state; don't attach a number.
+- **Three agents created** on the ElevenLabs dashboard → Conversational AI (all outbound, all Maya voice + Flash v2.5):
+  1. `detention_agent` — receiver detention escalation.
+  2. `driver_agent` — proactive driver check-in. One agent serves both the scheduled routine check-ins AND the anomaly-urgent variant — prompt templates on `trigger_reason`. Renamed from `driver_checkin_agent`.
+  3. `broker_update_agent` — broker status calls; powers `/api/v1/actions/batch-broker-updates/`.
+- **`driver_ivr_agent`** (inbound IVR) — deferred per Build Scope. Do not create. If an earlier stub exists, leave it disabled and do not attach a phone number.
 - Each agent's ID goes into `.env`:
   - `ELEVENLABS_AGENT_DETENTION_ID`
-  - `ELEVENLABS_AGENT_DRIVER_CHECKIN_ID`
-  - `ELEVENLABS_AGENT_DRIVER_IVR_ID` (defined, unused in demo)
-- Phone-number provisioning on ElevenLabs: use the native Twilio integration. In the agent's Phone Numbers tab, connect the Twilio account (provide SID + auth token) and assign the outbound `TWILIO_FROM_NUMBER` to both outbound agents. ElevenLabs will handle the SIP trunking under the hood.
+  - `ELEVENLABS_AGENT_DRIVER_ID` (renamed from `ELEVENLABS_AGENT_DRIVER_CHECKIN_ID`)
+  - `ELEVENLABS_AGENT_BROKER_UPDATE_ID`
+- Phone-number provisioning on ElevenLabs: use the native Twilio integration. In each agent's Phone Numbers tab, connect the Twilio account (provide SID + auth token) and assign the outbound `TWILIO_FROM_NUMBER` to all three outbound agents. ElevenLabs will handle the SIP trunking under the hood.
 - **Voice preset (Maya):** warm, Southwest-neutral female. Stability `0.55`. Similarity `0.80`. Flash v2.5 latency target `<75ms` first-token. If a voice isn't labeled "Maya" in the library, clone a similar preset and name it Maya for consistency in logs.
 
 **Env vars shipped in `.env.example`** (secrets filled in `.env`, never committed):
@@ -85,19 +87,26 @@ TWILIO_INBOUND_IVR_NUMBER=+14805559999
 # ElevenLabs
 ELEVENLABS_API_KEY=
 ELEVENLABS_AGENT_DETENTION_ID=
-ELEVENLABS_AGENT_DRIVER_CHECKIN_ID=
-ELEVENLABS_AGENT_DRIVER_IVR_ID=           # provisioned, not wired to a number in demo
+ELEVENLABS_AGENT_DRIVER_ID=                # renamed from ELEVENLABS_AGENT_DRIVER_CHECKIN_ID
+ELEVENLABS_AGENT_BROKER_UPDATE_ID=         # active; powers batch broker updates
 ELEVENLABS_SERVICE_TOKEN=                  # shared bearer for personalization + transcript
 ELEVENLABS_WEBHOOK_SECRET=                 # HMAC-SHA256 secret for post-call
+
+# Deferred (not in demo — kept documented for post-hackathon resume)
+# ELEVENLABS_AGENT_DRIVER_IVR_ID=          # inbound IVR; deferred per Build Scope
 ```
 
-The `ELEVENLABS_AGENT_BROKER_ID` var that appeared in an earlier `.env.example` draft is being **removed** — see the changelog entry for this push.
+**Rename history.**
+- `ELEVENLABS_AGENT_DRIVER_CHECKIN_ID` → `ELEVENLABS_AGENT_DRIVER_ID` (this push).
+- `ELEVENLABS_AGENT_BROKER_ID` (original name in an early `.env.example`) → `ELEVENLABS_AGENT_BROKER_UPDATE_ID` (this push, and re-activated after being deferred).
 
 ---
 
 ## 3. Outbound call lifecycle (the hot path)
 
 Both P0 outbound flows (detention + driver check-in) share this sequence. Differences are in the agent config and the payloads, not the plumbing.
+
+> **Trigger source note (2026-04-18).** Outbound `driver_agent` calls may be triggered by either the hard rule engine OR the Claude anomaly agent (`backend/services/anomaly_agent.py`). The `DriverCheckinRequest` payload gains an optional `trigger_reasoning` field that the scheduler fills with Claude's rationale or the hard rule's label; everything downstream (orchestrator, TwiML, ElevenLabs dynamic vars, transcripts) is identical. See `Backend_phase_guide.md` Block 4 "Dev A — Anomaly Detection" for the split.
 
 ### 3.1 Trigger → call placed
 
@@ -193,18 +202,18 @@ While the agent is speaking/listening, it autonomously calls our tool endpoints.
 - Has a hard **2-second internal deadline**; on timeout, return `{"error": "Our systems are slow, please hold."}` — speakable by the agent.
 - Emits a structured log: `event=tool_call tool=<name> call_id=<uuid> latency_ms=<n>`.
 
-**Tool roster and active agents per Build Scope:**
+**Tool roster and active agents:**
 
-| Tool | Detention agent | Driver check-in agent | Ships? |
-|---|:---:|:---:|:---:|
-| `get_load_details` | ✅ | — | yes |
-| `compute_detention_charge` | ✅ | — | yes |
-| `log_conversation_outcome` | ✅ | ✅ | yes |
-| `get_driver_status` | — | ✅ | yes (endpoint live; attached only to check-in agent) |
-| `check_hos` | — | ✅ | yes |
-| `lookup_parking` | — | ✅ | yes |
-| `record_proactive_checkin` | — | ✅ | yes (P0 per F6b) |
-| `record_driver_checkin` | — | — | **endpoint implemented for documentation; NOT attached to any active agent** — inbound IVR deferred per Build Scope |
+| Tool | `detention_agent` | `driver_agent` | `broker_update_agent` | Ships? |
+|---|:---:|:---:|:---:|:---:|
+| `get_load_details` | ✅ | — | ✅ | yes |
+| `compute_detention_charge` | ✅ | — | — | yes |
+| `log_conversation_outcome` | ✅ | ✅ | ✅ | yes |
+| `get_driver_status` | — | ✅ | ✅ | yes (endpoint live; attached to `driver_agent` + `broker_update_agent`) |
+| `check_hos` | — | ✅ | — | yes |
+| `lookup_parking` | — | ✅ | — | yes |
+| `record_proactive_checkin` | — | ✅ | — | yes (P0 per F6b) |
+| `record_driver_checkin` | — | — | — | **endpoint implemented for documentation; NOT attached to any active agent** — inbound IVR deferred per Build Scope |
 
 The ElevenLabs agent config (Tools tab) for each agent lists only the checkmarked tools. Adding extras pollutes the tool-choice space and lengthens latency — leave the agent configs minimal.
 
@@ -273,7 +282,7 @@ Read the header, read the **raw body bytes** (not the parsed JSON — the signat
 |---|---|
 | `detention_escalation` | Write transcript + structured data. If `data_collection_results.receiver_accepted_detention == true` OR `ap_email != null` → `services.detention.generate_invoice(call_id)` → publish `invoice.generated`. Set `Call.outcome` from `evaluation_criteria_results.invoice_path_unblocked` (success → `resolved`, failure → `escalated`). |
 | `driver_proactive_checkin` | Unpack `data_collection_results` (`fatigue_level`, `hos_self_reported_minutes`, `eta_confidence`, `vehicle_issues`, `vehicle_issue_notes`, `needs_parking`) onto the `Driver` row. Set `last_checkin_at = call.ended_at`. Recompute `next_scheduled_checkin_at = now + 3h`; if `data_collection_results.call_answered == false` (voicemail), shorten to `now + 1h`. Publish `load.updated` if driver on an active load (the FE's `DriverCheckinCard` subscribes). |
-| `broker_check_call` | **deferred.** Endpoint handles the shape for completeness; stores + publishes but no visible FE reaction in the demo. |
+| `broker_check_call` | Active (`broker_update_agent`). Write transcript + structured data. Set `Call.outcome` from `evaluation_criteria_results.broker_informed` (success → `resolved`; failure → `escalated`). No invoice side-effect. Publish `call.ended`. |
 | `driver_checkin` (inbound) | **deferred.** Handler exists for post-hackathon; does not fire in the demo because the inbound agent isn't wired to a phone number. |
 
 **Publish after DB commit.** Always. If Pusher fails, log and move on — the dashboard will reconcile on next mount.
@@ -333,10 +342,12 @@ Our agents use well below both. See Analysis tab specs below.
 - **Analysis — Evaluation Criteria (1 of 30):**
   - `invoice_path_unblocked`: success iff `receiver_accepted_detention == true` OR `ap_email != null`.
 
-### 5.2 `driver_checkin_agent` (outbound, Feature 1 + 2)
+### 5.2 `driver_agent` (outbound, Feature 1 + 2)
+
+> Renamed from `driver_checkin_agent` — same agent, same role, shorter name. Keep the new file name `prompts/driver_agent.md`; the old file should be moved (not copied) in the same PR as the code rename.
 
 - **Voice:** same Maya preset. Stability bumped to 0.60 for warmer routine feel; keep 0.55 if A/B testing.
-- **Prompt:** `prompts/driver_checkin_agent.md`. Templated on `trigger_reason`:
+- **Prompt:** `prompts/driver_agent.md`. Templated on `trigger_reason`:
   - `scheduled` → *"Hola {driver_name}, soy Maya. ¿Cómo va todo?"* (warm opener)
   - `hos_near_cap` → *"Hola {driver_name}, te quedan {hos_drive_remaining_minutes} minutos de manejo. ¿Necesitas parking cerca?"* (urgent but calm)
   - `missed_checkin` / `eta_drift` / `extended_idle` → *"Hola {driver_name}, no hemos hablado en un rato — ¿todo bien?"* (gentle concern)
@@ -365,9 +376,23 @@ Config exists for completeness and judge Q&A. Not attached to an inbound number 
 - **Tools (if re-enabled):** `get_driver_status`, `record_driver_checkin`, `check_hos`, `lookup_parking`.
 - **Analysis — Data Collection items** (6, from API Models §6.5): `reported_location`, `checkin_status`, `exception_type`, `hos_self_reported_minutes`, `fuel_level_pct`, `needs_parking`.
 
-### 5.4 `broker_update_agent` (deferred)
+### 5.4 `broker_update_agent` (outbound, Feature 5)
 
-Not created. If you inherited a stub, disable it on the dashboard to avoid accidental attachment.
+Active. Directly calls brokers on behalf of the dispatcher — end-of-day status, pre-delivery ETA confirmation, or a custom message — via `/api/v1/actions/batch-broker-updates/`. Whether the dashboard clicks the Batch button during the scripted demo is FE's call; the agent is wired either way so judges can exercise it in Q&A.
+
+- **Voice:** Maya, Flash v2.5, stability 0.55, similarity 0.80 (same preset as detention).
+- **Prompt:** `prompts/broker_update_agent.md`. Brief, factual, professional — no small talk. Opening template:
+  > *"Hi, this is Maya calling from Acme Trucking on behalf of {driver_name} on load {load_number}. Current status: {status_summary}. ETA to delivery: {eta_text}. Anything else you need from us?"*
+  On voicemail, leave a 15-second summary: load #, driver, ETA, callback number.
+- **Tools:** `get_load_details`, `get_driver_status`, `log_conversation_outcome`. (3 of 8.)
+- **Security:** enable `first_message`, `language`, `dynamic_variables` override toggles.
+- **Analysis — Data Collection (3 items, well under 25 cap):**
+  - `broker_acknowledged: boolean` — did the broker verbally acknowledge the ETA, or was a voicemail left with load# + ETA?
+  - `broker_requested_followup: boolean` — did the broker ask for any downstream action?
+  - `broker_notes: string | null` — free-text of anything the broker flagged.
+- **Analysis — Evaluation Criteria (1 of 30):**
+  - `broker_informed`: success iff `broker_acknowledged == true` OR a voicemail was left that included load# + ETA.
+- **Concurrency note.** Creator-tier ElevenLabs caps concurrency at ~5 parallel calls. `batch_broker_updates` uses `asyncio.Semaphore(settings.batch_calls_max_concurrency)` with default `8` — lower to `5` if rate-limit errors appear during rehearsal. See §14 open questions.
 
 ---
 
@@ -450,11 +475,11 @@ Header: `X-Service-Token: ${ELEVENLABS_SERVICE_TOKEN}`. Same secret on both endp
 4. routes/actions.py::driver_checkin:
      - Safety gates pass (hos_near_cap bypasses 90-min cooldown + driving check).
      - Creates voice_calls row (outcome=in_progress, purpose=driver_proactive_checkin).
-5. call_orchestrator.place_outbound_call(agent_id=DRIVER_CHECKIN_AGENT, to=miguel.phone).
+5. call_orchestrator.place_outbound_call(agent_id=DRIVER_AGENT, to=miguel.phone).
      - Twilio calls Miguel's phone.
      - Publishes call.started on Pusher.
 6. Twilio answer → fetches TwiML from /webhooks/twilio/voice/.
-     - Signature verified. TwiML returns <Connect><Stream> to ElevenLabs driver_checkin_agent.
+     - Signature verified. TwiML returns <Connect><Stream> to ElevenLabs driver_agent.
 7. ElevenLabs personalization webhook fires:
      - Dynamic vars: driver_name=Miguel, driver_language=es, hos_drive_remaining_minutes=25,
        parking_nearby_json=<Pilot Needles POI>, trigger_reason=hos_near_cap.
@@ -596,11 +621,11 @@ Each is a list of `TranscriptTurn` objects with timestamps relative to call star
 
 ### Block 0 — Foundations
 - [ ] Both Twilio numbers purchased; SID + token in `.env`.
-- [ ] All three ElevenLabs agents created; IDs in `.env` (broker agent intentionally not created).
+- [ ] All three ElevenLabs agents created (`detention_agent`, `driver_agent`, `broker_update_agent`); IDs in `.env`. `driver_ivr_agent` intentionally not created.
 - [ ] `ELEVENLABS_SERVICE_TOKEN` + `ELEVENLABS_WEBHOOK_SECRET` generated + stored. Never rotate during demo week.
-- [ ] ElevenLabs native Twilio integration: account connected; `TWILIO_FROM_NUMBER` assigned to both outbound agents (`detention`, `driver_checkin`).
-- [ ] Voice preset "Maya" confirmed on each agent (same voice id across all).
-- [ ] Flash v2.5 selected (not Flash v2 or Turbo).
+- [ ] ElevenLabs native Twilio integration: account connected; `TWILIO_FROM_NUMBER` assigned to all three outbound agents.
+- [ ] Voice preset "Maya" confirmed on each agent (same voice id across all three).
+- [ ] Flash v2.5 selected on each agent (not Flash v2 or Turbo).
 
 ### Block 1 — Hello-world outbound
 - [ ] Minimal `routes/twilio.py::voice` returns TwiML `<Connect><Stream>` to detention agent.
@@ -625,14 +650,21 @@ Each is a list of `TranscriptTurn` objects with timestamps relative to call star
 - [ ] `RELAY_DEMO_SAFE_MODE=true` path tested with `TWILIO_AUTH_TOKEN` revoked; `scripts/rehearse_hero.py` still exits 0.
 
 ### Block 4 — Check-in + anomaly
-- [ ] Driver check-in agent's 5 tools attached.
-- [ ] **Security tab overrides enabled on driver_checkin agent.**
+- [ ] `driver_agent`'s 5 tools attached.
+- [ ] **Security tab overrides enabled on `driver_agent`.**
 - [ ] Data Collection (7 items) + Evaluation Criteria (`fatigue_captured`, `hos_safety_respected`) configured.
 - [ ] Personalization webhook branches on `trigger_reason`; injects `parking_nearby_json` for `hos_near_cap`.
 - [ ] `exceptions_engine` publishes `exception.raised` + POSTs `/actions/driver-checkin/` on `missed_checkin`, `hos_near_cap`, `eta_drift`, `extended_idle`.
 - [ ] 90-min cooldown (scheduled) + driving gate (non-`hos_near_cap`) enforced in `routes/actions.py::driver_checkin`.
 - [ ] Post-call unpacks `data_collection_results` onto Driver; publishes `load.updated`.
 - [ ] `pytest backend/tests/test_proactive_checkin.py` green.
+
+### Block 4.5 — Broker update agent (lightweight, runs alongside Block 4)
+- [ ] `broker_update_agent`'s 3 tools attached (`get_load_details`, `get_driver_status`, `log_conversation_outcome`).
+- [ ] **Security tab overrides enabled on `broker_update_agent`.**
+- [ ] Data Collection (3 items) + Evaluation Criteria (`broker_informed`) configured.
+- [ ] `routes/actions.py::batch_broker_updates` fans out via `asyncio.Semaphore(settings.batch_calls_max_concurrency)` (default 8; drop to 5 if ElevenLabs concurrency errors).
+- [ ] One manual end-of-day batch POST against 2 seeded brokers → both calls place, both post-call webhooks arrive, `load.updated` fires twice.
 
 ### Block 5 — Polish
 - [ ] Tighten each agent's opening line; record 10 samples per agent, pick best.
@@ -669,7 +701,7 @@ Each is a list of `TranscriptTurn` objects with timestamps relative to call star
 
 1. **ElevenLabs `post_call_audio` delivery latency.** Ours is usually <30s; sometimes >2min. FE does not wait for it — `audio_url` on `/calls/[id]` is `null` initially and hydrates on a later visit. Doesn't block the demo; noted for Q&A.
 2. **Machine detection true-negative rate.** `DetectMessageEnd` is accurate enough for the demo but can occasionally flag a human as machine if they speak too slowly. If it bites us in rehearsal, switch to `Enable` (less aggressive) and accept longer leave-a-message on voicemails.
-3. **ElevenLabs rate limits** — Creator tier caps concurrency at ~5 parallel calls. Broker batch would have hit this; with F5 deferred we're not at risk. Relevant only for post-hackathon.
+3. **ElevenLabs rate limits** — Creator tier caps concurrency at ~5 parallel calls. With `broker_update_agent` re-activated, `batch_broker_updates` is exposed to this cap again. Default `batch_calls_max_concurrency = 8` — **drop to `5` if any 429s appear during rehearsal** and re-test. Solo detention / driver check-in flows stay well under the cap.
 4. **Punjabi voice preset** — not provisioned. Deferred by Build Plan ruthless-cut order. If added later, confirm Maya voice exists in `pa`; ElevenLabs library coverage varies.
 
 ---

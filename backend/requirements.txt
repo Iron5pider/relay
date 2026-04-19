@@ -1,0 +1,14 @@
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.30,<0.31
+pydantic>=2.6,<3.0
+pydantic-settings>=2.2,<3.0
+sqlalchemy>=2.0,<3.0
+alembic>=1.13,<2.0
+asyncpg>=0.29,<0.30
+httpx>=0.27,<0.28
+twilio>=9.0,<10.0
+pusher>=3.3,<4.0
+orjson>=3.10,<4.0
+python-dotenv>=1.0,<2.0
+# Anomaly agent — Claude Sonnet 4.6 reasoning layer (Messages API + prompt caching + forced tool use)
+anthropic>=0.40,<1.0

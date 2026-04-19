@@ -4,12 +4,13 @@
 >
 > **Precedence:** `CLAUDE.md` = contract · API Models (Notion) = canonical spec · **Build Scope (Notion) = P0 prioritization lock** · Build Plan (Notion) = canonical sequence · this doc = backend execution detail. On any conflict, the Notion pages win — and when Build Scope and Build Plan disagree, **Build Scope wins** (it is newer and scopes P0 more tightly).
 
-> **Scope reconciliation (2026-04-19).** The Notion **Build Scope** page narrows P0 to **three features** and moves two Build Plan workflows to "Later — Good-to-haves":
+> **Scope reconciliation (2026-04-19, amended 2026-04-18 for 3-agent rename).** The Notion **Build Scope** page narrows P0 to **three features** and moves Build Plan workflows around:
 > - **P0 ships:** Feature 1 — Dispatch Check-In (F6b proactive driver check-in) · Feature 2 — Anomaly Detection + Auto-Call (extends F6b, adds `missed_checkin` trigger) · Feature 3 — Auto-Invoice via Escalation Call (F2 + F4 detention hero).
-> - **Deferred:** F5 Broker Check-Call Batch · F6 Inbound Multilingual Driver IVR. Prompts, agent, inbound Twilio webhook branch, and `record_driver_checkin` tool stay documented but **do not ship in the demo**.
+> - **Active agents (3, all outbound):** `detention_agent` · `driver_agent` (renamed from `driver_checkin_agent`) · `broker_update_agent` (re-activated from deferred; directly calls brokers via `/api/v1/actions/batch-broker-updates/`).
+> - **Deferred:** F6 Inbound Multilingual Driver IVR only. `driver_ivr_agent`, inbound Twilio webhook branch, and `record_driver_checkin` tool stay documented but **do not ship in the demo**.
 > - **Schema impact:** add `missed_checkin` to `CheckinTriggerReason` enum in API Models §2, `backend/models/schemas.py`, and `frontend/shared/types.ts` — same PR. No other schema changes.
-> - **Demo arc:** two beats (not four). Beat 1 = driver check-in / anomaly (Feature 1 + 2). Beat 2 = receiver escalation → invoice (Feature 3).
-> Blocks in this doc marked **[DEFERRED]** below are the workflows moved out of P0. Keep the scaffolding comments for a post-hackathon resume.
+> - **Demo arc:** two scripted beats — Beat 1 = driver check-in / anomaly (Feature 1 + 2); Beat 2 = receiver escalation → invoice (Feature 3). `broker_update_agent` is configured and callable for judge Q&A but is not required to fire on the scripted timeline.
+> Blocks in this doc marked **[DEFERRED]** below are the workflows still out of P0. Keep the scaffolding comments for a post-hackathon resume.
 
 ## How to use this doc
 
@@ -29,7 +30,7 @@ Build Plan owns the sponsor/identity tasks. Backend-side inside Block 0:
 - Decide & lock **realtime provider** (Pusher *or* Ably, not both) — get API keys into `.env.example`.
 - Decide & lock **upstream fleet-data provider** — default `RELAY_ADAPTER=navpro` per 2026-04-18 changelog; `mock` is the Wi-Fi fallback. **This is missing from the Build Plan; add it to the Block 0 checklist when syncing with Dev B.**
 - Claim two Twilio phone numbers: outbound caller ID (`TWILIO_FROM_NUMBER`) + inbound driver IVR (`TWILIO_INBOUND_IVR_NUMBER`).
-- Create three ElevenLabs agents (`detention`, `broker_update`, `driver_ivr`) even if empty — capture their IDs into env vars now.
+- Create three ElevenLabs agents (`detention_agent`, `driver_agent`, `broker_update_agent`) even if empty — capture their IDs into `ELEVENLABS_AGENT_DETENTION_ID`, `ELEVENLABS_AGENT_DRIVER_ID`, `ELEVENLABS_AGENT_BROKER_UPDATE_ID` now. `driver_ivr_agent` (inbound IVR) stays deferred per Build Scope; do not create.
 
 **Gate (backend slice):** `.env.example` fully populated; can hit ElevenLabs Agents API with `curl` using the key.
 
@@ -84,7 +85,7 @@ Build Plan owns the sponsor/identity tasks. Backend-side inside Block 0:
 **Goal:** Pluggable upstream fleet-data source. `navpro` is the default (2026-04-18 changelog); `mock` is the demo-day Wi-Fi fallback. *(Not in Build Plan — insert explicitly.)*
 
 - `backend/services/adapters/base.py` — ABC mirroring API Models §9 (`list_drivers`, `get_hos`, `get_location`, `get_breadcrumbs`, `get_trip_route`, `find_nearby_places`, `create_trip`, `assign_trip`, `send_driver_message`, `start_webhook_listener`).
-- `backend/services/adapters/navpro.py` — **real** httpx client against `https://api.truckerpath.com/v1`. Endpoints per API Models §4.3. Not a stub.
+- `backend/services/adapters/navpro.py` — **real** httpx client against `https://api.truckerpath.com/navpro` (note: `/navpro` prefix before `/api/`, NOT `/v1`; Notion §4.3 inferred wrongly). Auth: `Authorization: Bearer <jwt_token>` from `settings.navpro_jwt_token`. Endpoint surface, translation tables, and the **hybrid-mode field provenance** (which fields stay seed-sourced even in `navpro` mode — HOS, parking POIs, broker, detention) live in `API_DOCS/NavPro_integration.md`. Read that before implementing.
 - `backend/services/adapters/mock_tp.py` — reads `data/*.json` + in-memory tick stream driven by `scripts/trigger_tick.py`.
 - `backend/services/adapters/samsara.py` — optional, sandbox. Not on demo path.
 - `backend/services/adapters/__init__.py::get_adapter()` — env-factory reading `settings.relay_adapter`; default `navpro`.
@@ -177,10 +178,13 @@ Build Plan owns the sponsor/identity tasks. Backend-side inside Block 0:
 
 **Goal:** Ship **Features 1 and 2** from the Notion Build Scope: scheduled Proactive Driver Check-In (F6b) and Anomaly Detection + Auto-Call (extends F6b). This is the new Beat 1 of the demo arc. *(Build Plan Block 4 repurposed; broker batch + inbound IVR deferred — see `[DEFERRED]` subsections below.)*
 
-### [DEFERRED] Broker batch — moved to Later · Good-to-haves per Build Scope
-- Skip `batch_broker_updates` route, `prompts/broker_update_agent.md`, broker agent ElevenLabs config, and broker fan-out WS visual for the hackathon.
-- Keep the `BatchBrokerUpdatesRequest/Response` shapes in API Models §4.1 for post-hackathon resume; do **not** wire them in the frontend.
-- Fallback audio snippets not recorded.
+### Broker batch via `broker_update_agent` (re-activated 2026-04-18; P1 on the scripted demo but agent ships)
+- `backend/routes/actions.py::batch_broker_updates` — `asyncio.gather` over per-broker placements with `asyncio.Semaphore(settings.batch_calls_max_concurrency)` (default 8; drop to 5 if ElevenLabs Creator-tier concurrency errors appear — see `ElevenLabs_Twilio_integration.md` §14).
+- `prompts/broker_update_agent.md` — brief, factual opener; 15-second voicemail template with load# + ETA + callback number. Full config details in `ElevenLabs_Twilio_integration.md` §5.4.
+- ElevenLabs agent config: 3 tools attached (`get_load_details`, `get_driver_status`, `log_conversation_outcome`); Data Collection 3 items (`broker_acknowledged`, `broker_requested_followup`, `broker_notes`); Evaluation Criterion `broker_informed`.
+- Post-call side-effect: write transcript + set `Call.outcome` from `broker_informed`. No invoice trigger.
+- FE wiring of the Batch button is optional for the scripted demo; the agent is active either way so judges can exercise it in Q&A via a direct POST.
+- Fallback audio snippets (`data/fallback_transcripts/broker_batch.json`) recorded — used by `demo_safe_mode` if Twilio/ElevenLabs fail mid-batch.
 
 ### [DEFERRED] Driver inbound IVR — moved to Later · Good-to-haves per Build Scope
 - Skip the `inbound` branch of `/webhooks/twilio/voice/`, the `driver_ivr_agent` ElevenLabs config, and `prompts/driver_ivr_agent.md`.
@@ -195,17 +199,36 @@ Build Plan owns the sponsor/identity tasks. Backend-side inside Block 0:
 - `backend/routes/tools.py::record_proactive_checkin` — the **8th agent tool**. Idempotent on `(call_id, "record_proactive_checkin")`. Returns `{ok, next_scheduled_checkin_at, dashboard_event_emitted}`.
 - **Personalization webhook enhancement** for proactive agent: on `trigger_reason == "hos_near_cap"`, pre-fetch `adapter.find_nearby_places(driver.lat, driver.lng, "parking")` and inject as `parking_nearby_json` dynamic var.
 - **Post-call writeback** (in `post_call` webhook): on `purpose==driver_proactive_checkin` + `post_call_transcription`, unpack `data_collection_results` onto `Driver` row, bump `last_checkin_at = call.ended_at`, recompute `next_scheduled_checkin_at = now + 3h` (voicemail → `now + 1h`). Publish `load.updated` if on a load — **do not invent a new WS event**.
-- `prompts/driver_checkin_agent.md` — warm, safety-first, HOS-aware. Caps own call length at 90s when fatigue high or HOS near cap (`hos_safety_respected` eval criterion).
+- `prompts/driver_agent.md` (renamed from `driver_checkin_agent.md`) — warm, safety-first, HOS-aware. Caps own call length at 90s when fatigue high or HOS near cap (`hos_safety_respected` eval criterion).
 - Urgent variant for anomaly triggers: opener *"Hey Miguel, haven't heard from you in a bit — everything alright?"* when `trigger_reason` is `missed_checkin`, `hos_near_cap`, `eta_drift`, or `extended_idle`. Single prompt file with `{{trigger_reason}}` templating; the scheduled opener stays warm-and-routine.
 - ElevenLabs Analysis tab: 7 Data Collection items + 2 Evaluation Criteria (well under 25/30 caps).
 
 ### Dev A — Anomaly Detection (Feature 2 of Build Scope)
-- `backend/services/exceptions_engine.py` gains the **missed-checkin rule** (in addition to the HOS-near-cap + ETA-drift + extended-idle rules already defined in Block 2):
-  - `now - driver.last_checkin_at > 2 × checkin_cadence` AND driver is not on a scheduled rest → publish `ExceptionEvent(event_type=missed_appointment, severity=warn)` AND fire `POST /api/v1/actions/driver-checkin/` with `trigger_reason=missed_checkin`. Cadence default = 3h (same as the post-call reschedule).
-- `CheckinTriggerReason` enum adds `missed_checkin` (see Block 1 schema note). Update API Models §2, `schemas.py`, and `shared/types.ts` in one PR.
-- The orchestrator's 90-min cooldown is bypassed for all non-`scheduled` triggers, including `missed_checkin`.
-- Dashboard surfaces a pulsing `AnomalyBadge` component on the affected driver row via the existing `exception.raised` WS event — **do not invent a new event type**. Frontend maps `event_type in {missed_appointment, hos_warning, late_eta, breakdown}` to the anomaly badge.
-- Seed data staging: Miguel Rodriguez's row is seeded with `last_checkin_at = now - 5h` and `hos_drive_remaining_minutes = 25` so `scripts/trigger_tick.py --anomaly miguel` fires `hos_near_cap` + (by silence) `missed_checkin` simultaneously for a convincing live trigger.
+
+**The rule engine plus a Claude Sonnet 4.6 reasoning layer at the Relay ↔ NavPro seam.** Hard rules fire directly for unambiguous thresholds; soft signals (silence, staleness, multi-signal borderlines) flow to the LLM so the scheduler reasons about driver silence in context. Per the positioning memory (`project_positioning.md`), this is the integration point where NavPro-supplied freshness meets Relay-owned state — neither source alone tells us when to call.
+
+**Module layout (landed 2026-04-18):**
+- `backend/services/navpro_poller.py` — `collect_snapshot(driver_id)` composes `list_drivers / get_location / get_breadcrumbs / get_active_trip_eta / get_performance` via `asyncio.gather(..., return_exceptions=True)`. Per-endpoint failure surfaces as `snap.*_ok=False` + `degraded_reason`; never raises.
+- `backend/services/exceptions_engine.py` — `evaluate(snap, ctx)` returns `(HardRuleHit | None, list[SoftSignal])`. Hard rules: `hos_drive_remaining_minutes ≤ 30` → `hos_near_cap`, ETA drift ≥ 30 min vs active load delivery → `eta_drift`, `oor_miles_last_24h ≥ 20` → `extended_idle`. Soft signals: `tracking_stale_minutes > 30`, `missed_checkin` (Relay-side silence > 2× cadence), `missing_active_trip` (load assigned but `active_trip_id` null), `schedule_drift`, `mild_off_route`, `navpro_degraded`, `fatigue_history`.
+- `backend/services/anomaly_agent.py` — `judge(snap, ctx)` → `AnomalyDecision`. Claude Sonnet 4.6 with forced tool use (`decide_proactive_call`), 5-min prompt cache (`cache_control: ephemeral`), 3s hard timeout via `asyncio.wait_for`. Never raises — returns a safe hold on any failure so the scheduler tick keeps moving.
+- `backend/services/anomaly_agent_schemas.py` — `NavProSnapshot`, `DriverContext`, `AnomalyDecision`, `HardRuleHit`, `SoftSignal`, `CallSummary`. Snapshot / context split is intentional: one is NavPro-supplied (pull-only, no HOS, no webhooks — per `NavPro_integration.md` §9), the other is Relay-owned.
+- `backend/prompts/anomaly_agent_system.md` — ~900-token cached system prompt. Teaches Claude the field-provenance split so it doesn't over-weight stale HOS beliefs when `last_hos_self_report_age_minutes` is large.
+- `backend/services/checkin_scheduler.py` — tiered asyncio cron per `NavPro_integration.md` §7. Hero-adjacent drivers polled every 30s (exception load OR within 30 min of delivery); others every 60s. Hard rule path short-circuits the LLM. Cancellable via FastAPI lifespan.
+- `backend/services/adapters/base.py` — ABC adds `get_performance(driver_id, time_range) → PerformanceSnapshot` and `get_active_trip_eta(driver_id)`. Drops `get_hos`, `send_driver_message`, `start_webhook_listener` per NavPro v1.0 gaps (`NavPro_integration.md` §9).
+
+**Enum adds (schemas.py + types.ts + Notion API Models §2, same PR):**
+- `CheckinTriggerReason.missed_checkin` — hard rule → soft signal (Claude decides urgency + context).
+- `CheckinTriggerReason.tracking_stale` — Claude fires on staleness of `navpro.driver_location.latest_update`.
+
+**Additive field on `Call`:** `trigger_reasoning: Optional[str]` — Claude's plain-English rationale, surfaced verbatim in the dashboard `AnomalyBadge` tooltip. Null for hard-rule triggers. WS `call.started` payload gains the same optional field (API Models §5 type update, no new event).
+
+**Orchestrator interaction.** On `should_call=true` from Claude, or on any `HardRuleHit`, the scheduler posts to `POST /api/v1/actions/driver-checkin/` with `trigger_reason` + `trigger_reasoning` populated. The orchestrator's existing safety gates (409 `driver_driving`, 429 `checkin_too_recent`) still fire — Claude recommends; the gates authorize.
+
+**Failure / fallback.** Anthropic down → scheduler runs rule-only; `/health` reports `claude: false` but returns 200. NavPro endpoint down → `degraded_reason` set; Claude biases toward calling when a load deadline is close (per the system prompt). `RELAY_DEMO_SAFE_MODE=true` + both upstreams down → scheduler runs on `MockTPAdapter` staged state; Miguel's `hos_near_cap` self-report hard rule still fires Beat 1 with zero LLM calls.
+
+**Seed staging (unchanged):** Miguel Rodriguez → `last_checkin_at = now - 5h`, `hos_drive_remaining_minutes = 25`, mock adapter returns `oor_miles_last_24h = 2.3` (benign, under the hard threshold) + `latest_update = 45m ago`. Hard `hos_near_cap` rule catches the safety case; if HOS is disabled for a pure-anomaly demo, Claude picks up the silence + staleness combo and fires `tracking_stale` or `missed_checkin`.
+
+**Env additions (`backend/config.py`):** `anomaly_agent_enabled` (default `True`), `anomaly_agent_model="claude-sonnet-4-6"`, `anomaly_agent_max_tokens=512`, `anomaly_agent_poll_interval_hero_seconds=30`, `anomaly_agent_poll_interval_default_seconds=60`, `navpro_tracking_stale_after_minutes=30`, `navpro_qps_soft_cap=20`. Reuses existing `anthropic_api_key` — no new secret.
 
 ### Dev B — Dashboard integration (Build Scope arc)
 - `DriverCheckinCard` component per driver: fatigue chip, HOS three-clock mini-widget, ETA confidence, last check-in time.
@@ -220,10 +243,12 @@ Build Plan owns the sponsor/identity tasks. Backend-side inside Block 0:
 - [ ] 409 `driver_driving` for non-event trigger on driving driver; 429 `checkin_too_recent` for scheduled trigger within 90 min; `hos_near_cap` / `missed_checkin` bypass both.
 - [ ] `pytest backend/tests/test_proactive_checkin.py` green (incl. the new `missed_checkin` path).
 
-**[DEFERRED] Build Plan Block 4 gates that no longer apply:**
-- ~~Batch button fires 8+ simultaneous calls; dashboard shows fan-out + fan-in.~~
-- ~~≥1 inbound driver call in Spanish updates the dashboard live.~~
-- ~~Broker-batch fallback audio plays from `/demo`.~~
+**Broker agent gates (new, re-activated 2026-04-18):**
+- [ ] Direct POST to `/api/v1/actions/batch-broker-updates/` with `broker_ids=[two seeded brokers]` fires 2 concurrent calls; both `call.started` events publish; both post-call webhooks arrive; `load.updated` fires for each broker's active loads.
+- [ ] Broker-batch fallback audio (`data/fallback_transcripts/broker_batch.json`) plays from `/demo` via `scripts/serve_fallback.py`.
+
+**[DEFERRED] Build Plan Block 4 gates that still don't apply:**
+- ~~≥1 inbound driver call in Spanish updates the dashboard live.~~ (IVR deferred.)
 
 ---
 
@@ -304,7 +329,7 @@ Cut in this order if any block overruns (new order reflects the Build Scope 3-fe
 4. **`record_proactive_checkin` full writeback** — on any failure, still publish `load.updated` with a minimal `{fatigue_level, eta_confidence}` payload so the dashboard chip updates. The invoice path is still the priority.
 5. **Never cut: detention escalation (Feature 3), live transcript, invoice PDF.** If cutting the hero, the hackathon is lost.
 
-**Already cut (2026-04-19 Build Scope):** F5 Broker Batch, F6 Inbound Driver IVR. Do not resurrect during the hackathon.
+**Already cut (2026-04-19 Build Scope, amended 2026-04-18):** F6 Inbound Driver IVR. Do not resurrect during the hackathon. F5 Broker Batch was un-cut on 2026-04-18 via the 3-agent rename — `broker_update_agent` is now active; see Block 4 broker-batch section.
 
 ## Pivot signals (backend-relevant)
 
