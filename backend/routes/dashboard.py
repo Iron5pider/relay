@@ -183,19 +183,36 @@ async def fleet_live(db: AsyncSession = Depends(get_db)):
     dq = await db.execute(select(Driver).order_by(Driver.name))
     drivers = list(dq.scalars().all())
 
-    # Pull each driver's active (non-delivered, non-planned-unassigned) load.
+    # Pull every non-planned load per driver. Active statuses win when a
+    # driver has multiple; otherwise fall back to the most recent delivered
+    # load so the Delivered tab has something to render.
     lq = await db.execute(
-        select(Load).where(
+        select(Load)
+        .where(
             Load.driver_id.is_not(None),
             Load.status.in_(
-                ["in_transit", "at_pickup", "at_delivery", "exception"]
+                ["in_transit", "at_pickup", "at_delivery", "exception", "delivered"]
             ),
         )
+        .order_by(Load.updated_at.desc())
     )
-    active_loads = list(lq.scalars().all())
+    all_loads = list(lq.scalars().all())
+    _active_rank = {
+        "exception": 0,
+        "at_delivery": 1,
+        "at_pickup": 2,
+        "in_transit": 3,
+        "delivered": 4,
+    }
     by_driver: dict[str, Load] = {}
-    for load in active_loads:
-        if load.driver_id and load.driver_id not in by_driver:
+    for load in all_loads:
+        if not load.driver_id:
+            continue
+        current = by_driver.get(load.driver_id)
+        if current is None:
+            by_driver[load.driver_id] = load
+            continue
+        if _active_rank[load.status] < _active_rank[current.status]:
             by_driver[load.driver_id] = load
 
     broker_ids = {load.broker_id for load in by_driver.values() if load.broker_id}

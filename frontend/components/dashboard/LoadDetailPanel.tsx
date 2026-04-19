@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Phone, Headset, Radio, FileText, MapPin, Clock, CheckCircle, Receipt, Truck, DollarSign } from "lucide-react";
+import { Phone, Headset, Radio, FileText, MapPin, Clock, CheckCircle, Receipt, Truck, DollarSign, Folder, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { ActiveLoad, DriverRow } from "@/lib/api";
 import { api } from "@/lib/api";
 import { markCallDialing, appendSimulatedTranscript } from "@/lib/realtime";
 import { setPanelView, useUI } from "@/lib/store";
+import DocumentsDrawer from "./DocumentsDrawer";
 import {
   detentionBillable,
   detentionAmount,
@@ -25,6 +26,7 @@ interface Props {
 export default function LoadDetailPanel({ driver, load }: Props) {
   const [, forceTick] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
+  const [docsOpen, setDocsOpen] = useState(false);
   const ui = useUI();
   const isException = load.status === "exception";
 
@@ -268,26 +270,33 @@ export default function LoadDetailPanel({ driver, load }: Props) {
               <FileText className="h-4 w-4 text-ink-300" />
             </div>
 
-            {/* POD document */}
-            {load.pod?.url && (
-              <a
-                href={load.pod.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-ink-200 bg-white p-3 flex items-center gap-2 hover:bg-ink-50 transition-colors"
-              >
-                <FileText className="h-4 w-4 text-emerald-500" />
-                <div>
-                  <div className="text-[12px] font-medium text-ink-900">Proof of Delivery</div>
+            {/* Documents — opens in-app viewer with POD + rate con + BOL + lumper */}
+            <button
+              type="button"
+              onClick={() => setDocsOpen(true)}
+              className="w-full rounded-lg border border-ink-200 bg-white p-3 flex items-center justify-between hover:bg-ink-50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Folder className="h-4 w-4 text-emerald-500" />
+                <div className="text-left">
+                  <div className="text-[12px] font-medium text-ink-900">
+                    Documents
+                  </div>
                   <div className="text-[10px] text-ink-400 font-mono">
-                    Signed by {load.pod.signed_by ?? "—"}
+                    POD · Rate Con · BOL · Lumper
+                    {load.pod?.signed_by ? ` · Signed by ${load.pod.signed_by}` : ""}
                   </div>
                 </div>
-              </a>
-            )}
+              </div>
+              <ChevronRight className="h-4 w-4 text-ink-300" />
+            </button>
           </>
         )}
       </div>
+
+      {docsOpen && (
+        <DocumentsDrawer driver={driver} load={load} onClose={() => setDocsOpen(false)} />
+      )}
 
       {/* Actions — sticky bottom (hide for delivered loads) */}
       {load.status !== "delivered" && (

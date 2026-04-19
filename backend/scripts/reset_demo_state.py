@@ -233,7 +233,29 @@ for i, row in enumerate(_EXTRA_DRIVERS, start=7):
         "updated_at": _ts(-5),
     })
 
-assert len(DRIVERS) == 30, f"expected 30 drivers, got {len(DRIVERS)}"
+# --- 2 real-phone drivers (IDs 31-32) — callable during live demo ---------
+DRIVERS.append({
+    "id": _driver_id(31), "name": "Alex Mercer", "phone": "+16029198786",
+    "preferred_language": "en", "truck_number": "07",
+    "current_lat": 33.4484, "current_lng": -112.0740,
+    "hos_drive_remaining_minutes": 600, "hos_shift_remaining_minutes": 720,
+    "hos_cycle_remaining_minutes": 3240, "hos_remaining_minutes": 600,
+    "status": "on_duty", "fatigue_level": "low",
+    "last_checkin_at": _ts(-60), "next_scheduled_checkin_at": _ts(120),
+    "updated_at": NOW,
+})
+DRIVERS.append({
+    "id": _driver_id(32), "name": "Jordan Blake", "phone": "+14809798092",
+    "preferred_language": "en", "truck_number": "19",
+    "current_lat": 34.0522, "current_lng": -118.2437,
+    "hos_drive_remaining_minutes": 540, "hos_shift_remaining_minutes": 660,
+    "hos_cycle_remaining_minutes": 3000, "hos_remaining_minutes": 540,
+    "status": "on_duty", "fatigue_level": "low",
+    "last_checkin_at": _ts(-75), "next_scheduled_checkin_at": _ts(105),
+    "updated_at": NOW,
+})
+
+assert len(DRIVERS) == 32, f"expected 32 drivers, got {len(DRIVERS)}"
 
 # Quick aliases for load definitions.
 DR_CARLOS = DRIVERS[0]["id"]
@@ -669,16 +691,14 @@ INVOICES: list[dict] = [
     # Tommy L-12349 — draft (freshly generated from call 9)
     # detention_minutes = 240 - 120 = 120 → 120/60 * 70 = 140.00
     {
-        "id": "inv-0004-demo", "load_id": _load_id(0x7127), "call_id": "call-0009-demo" if False else "call-0009-demo",
+        "id": "inv-0004-demo", "load_id": _load_id(0x7127), "call_id": "call-0009-demo",
         "detention_minutes": 120, "rate_per_hour": Decimal("70.00"),
         "amount_usd": Decimal("140.00"), "pdf_url": "https://relay-pdfs.example/inv-0004.pdf",
         "status": "draft", "created_at": _ts(-22),
     },
 ]
-# NOTE: inv-0003 and inv-0004 reference call-0009 — both ok; we pick distinct call FKs below.
-# Fix: point inv-0004 at call-0009, inv-0003 at a synthetic hero call we'll add.
-INVOICES[2]["call_id"] = "call-0013-demo"  # we'll add this hero call below
-# Add a hero detention call that inv-0003 references:
+# Hero detention call that inv-0003 references (call-0013). Appended after
+# the main list so the call_id + invoice row stay in sync.
 CALLS.append(
     _call(13, _load_id(0x7123), DR_CARLOS, "detention_escalation", "outbound", "resolved",
           started_min_ago=20, duration_s=40, language="en",
@@ -688,6 +708,7 @@ CALLS.append(
               {"speaker": "human", "text": "I can confirm. Send to billing@acmelogistics.example.", "language": "en"},
           ])
 )
+INVOICES[2]["call_id"] = "call-0013-demo"
 
 
 # ---------------------------------------------------------------------------
