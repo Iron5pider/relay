@@ -123,6 +123,10 @@ class Load(Base):
     exception_flags: Mapped[list[Any]] = mapped_column(
         JSONB, nullable=False, server_default="[]"
     )
+    # Proof-of-delivery (2026-04-19). Written via POST /dispatcher/load/{id}/pod.
+    pod_url: Mapped[str | None] = mapped_column(Text)
+    pod_signed_by: Mapped[str | None] = mapped_column(Text)
+    pod_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
@@ -353,6 +357,9 @@ class Invoice(Base):
     generated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # Send audit (2026-04-19). Populated by POST /dispatcher/invoices/{id}/send.
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_to_email: Mapped[str | None] = mapped_column(Text)
 
 
 class DispatcherNotification(Base):
