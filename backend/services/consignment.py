@@ -120,8 +120,11 @@ def _score_driver(driver: Driver, load: Load, now: datetime) -> ScoreBreakdown:
     deadhead_minutes = (
         drive_minutes_for_miles(miles_to_pickup) if miles_to_pickup is not None else 0
     )
-    first_shift_minutes = min(haul_drive_minutes, 660)
-    hos_needed = (deadhead_minutes + first_shift_minutes) * (1 + BUFFER_PCT)
+    # Gate: driver needs enough drive time TODAY to reach pickup + load + start
+    # the haul (at least 2 more hours of drive time once loaded). Total haul
+    # length does not gate — multi-day hauls reset overnight.
+    minimum_haul_start = 120  # minutes
+    hos_needed = (deadhead_minutes + minimum_haul_start) * (1 + BUFFER_PCT)
     hos_headroom = int(driver.hos_drive_remaining_minutes - hos_needed)
 
     hours_since_assigned: float | None = None
